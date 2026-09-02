@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/ali-rajabpour/PhoenixPatchbay/main/phoenix_patchbay/messenger/telegram/patchbay_images/logo_text.png" alt="Phoenix Patchbay" width="100%" />
-</p>
-
 <h1 align="center">Phoenix Patchbay</h1>
 
 <p align="center">
@@ -134,11 +130,6 @@ still work unchanged.
 If you want to control Claude Code, Google's Gemini CLI, OpenAI's Codex CLI, Antigravity CLI, or xAI Grok Build via Telegram, Matrix, or Slack, build automations, or manage multiple agents easily — patchbay is the right tool for you. The messaging layer is modular: Telegram, Matrix, and Slack ship today, and new transports plug into the same transport-agnostic core.
 
 patchbay runs on your machine and sends simple console commands as if you were typing them yourself, so you can use your active subscriptions (Claude Max, Google AI Ultra, etc.) directly. No API proxying, no SDK patching, no spoofed headers. Just the official CLIs, executed as subprocesses, with all state kept in plain JSON and Markdown under `~/.phoenix-patchbay/`.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/PleasePrompto/ductor/main/docs/images/patchbay-start.jpeg" alt="patchbay /start screen" width="49%" />
-  <img src="https://raw.githubusercontent.com/PleasePrompto/ductor/main/docs/images/patchbay-quick-actions.jpeg" alt="patchbay quick action buttons" width="49%" />
-</p>
 
 ## Quick start
 
@@ -642,8 +633,8 @@ patchbay runs official provider CLIs and does not impersonate provider clients. 
 ## Contributing
 
 ```bash
-git clone https://github.com/PleasePrompto/ductor.git
-cd patchbay
+git clone https://github.com/ali-rajabpour/PhoenixPatchbay.git
+cd PhoenixPatchbay
 uv sync --extra dev
 ```
 

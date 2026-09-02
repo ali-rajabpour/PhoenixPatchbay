@@ -7,12 +7,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
     NODE_MAJOR=22
 
 # Base toolchain for an agent workspace: VCS, HTTP, search, build tools.
-# ripgrep is what Claude Code shells out to for search.
+# ripgrep is what Claude Code shells out to for search; poppler-utils gives the
+# read-guard hook `pdftotext`, so an approved PDF costs a few KB of text rather
+# than megabytes of rendered pages.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl gnupg git openssh-client \
         ripgrep jq less unzip zip procps tini iproute2 sudo tmux nano \
         build-essential \
         socat \
+        poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Node from NodeSource: Debian trixie ships 20.x, but Claude Code declares

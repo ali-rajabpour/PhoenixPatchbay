@@ -9,10 +9,10 @@
     "process skills. All are public.",
     "",
     "The two hooks are the ones that would otherwise be discovered the hard way:",
-    "rtk compresses Bash output before it reaches the model, and image-downscale",
-    "hands Read a 1024px copy of a photo instead of the original — measured at",
-    "93 MB -> 267 KB on a real folder, and an image stays in the transcript, so",
-    "every later turn pays for it again."
+    "rtk compresses Bash output before it reaches the model, and read-guard",
+    "stops the agent extracting a file the user only wanted placed, then hands",
+    "over a 1024px copy of a photo or a PDF's text when reading is approved.",
+    "A file stays in the transcript, so every later turn pays for it again."
   ],
   "extraKnownMarketplaces": {
     "context-mode": {
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node /home/patchbay/.claude/hooks/image-downscale.mjs"
+            "command": "node /home/patchbay/.claude/hooks/read-guard.mjs"
           }
         ]
       }

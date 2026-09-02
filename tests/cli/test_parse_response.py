@@ -123,3 +123,44 @@ def test_codex_parse_usage_fallback() -> None:
     _, _, usage = parse_codex_jsonl(line)
     assert usage is not None
     assert usage["total_tokens"] == 999
+
+
+def test_cache_traffic_counts_towards_input_tokens() -> None:
+    """A cached prompt is still a prompt that was sent.
+
+    Numbers are one real day from the SalamWebsite topic: uncached input was
+    50 tokens while the cache moved 1.4M. Reporting only ``input_tokens``
+    showed 50, so the footer could not have revealed a runaway session.
+    """
+    data = {
+        "result": "ok",
+        "usage": {
+            "input_tokens": 50,
+            "output_tokens": 8_280,
+            "cache_creation_input_tokens": 174_001,
+            "cache_read_input_tokens": 1_245_895,
+        },
+    }
+    resp = _parse_response(json.dumps(data).encode(), b"", 0)
+
+    assert resp.input_tokens == 50 + 174_001 + 1_245_895
+    assert resp.output_tokens == 8_280
+    assert resp.total_tokens == 50 + 174_001 + 1_245_895 + 8_280
+
+
+def test_missing_cache_fields_still_report_plain_input() -> None:
+    """Providers that publish no cache fields must be unaffected."""
+    data = {"result": "ok", "usage": {"input_tokens": 500, "output_tokens": 200}}
+    resp = _parse_response(json.dumps(data).encode(), b"", 0)
+    assert resp.input_tokens == 500
+    assert resp.total_tokens == 700
+
+
+def test_explicit_total_tokens_still_wins() -> None:
+    """Grok publishes its own total; it must not be recomputed."""
+    data = {
+        "result": "ok",
+        "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 999},
+    }
+    resp = _parse_response(json.dumps(data).encode(), b"", 0)
+    assert resp.total_tokens == 999

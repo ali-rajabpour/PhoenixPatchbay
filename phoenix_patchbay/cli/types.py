@@ -44,8 +44,24 @@ class CLIResponse(BaseModel):
 
     @property
     def input_tokens(self) -> int:
-        """Total input tokens (includes cache reads/writes)."""
-        return int(self.usage.get("input_tokens", 0))
+        """Total prompt tokens, cache traffic included.
+
+        Anthropic reports ``input_tokens`` as *uncached* input only; cache
+        reads and cache writes are separate fields and are nearly the whole
+        prompt in a long-lived session. Counting only the uncached field made
+        the footer read 50 tokens across a day that actually moved 1.4M, which
+        is exactly the reading that would have hidden the runaway burn this
+        session model was built to stop.
+
+        This is traffic, not cost — a cache read bills at a fraction of fresh
+        input. Cost is reported separately from ``total_cost_usd``.
+        """
+        usage = self.usage
+        return (
+            int(usage.get("input_tokens", 0) or 0)
+            + int(usage.get("cache_creation_input_tokens", 0) or 0)
+            + int(usage.get("cache_read_input_tokens", 0) or 0)
+        )
 
     @property
     def output_tokens(self) -> int:

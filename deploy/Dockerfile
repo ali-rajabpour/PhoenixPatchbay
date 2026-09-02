@@ -84,8 +84,11 @@ RUN npm install -g \
 # Phoenix Patchbay itself. Pin PATCHBAY_REF to a commit for a reproducible
 # build; `main` tracks the latest release.
 ARG PATCHBAY_REF=main
+# No `|| true` here on purpose: a failed install would otherwise produce an
+# image whose only symptom is `patchbay: not found` at runtime, long after the
+# build reported success.
 RUN pip install "phoenix-patchbay[api] @ git+${PATCHBAY_REPO}@${PATCHBAY_REF}" \
-    && patchbay --version || true
+    && patchbay --version
 
 # Claude Code refuses --dangerously-skip-permissions (which patchbay's default
 # permission_mode: bypassPermissions maps to) when euid is 0, so the bot cannot

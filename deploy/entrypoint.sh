@@ -33,7 +33,7 @@ done
 # Marketplaces have to be known before enabledPlugins means anything. Failure is
 # not fatal — a box with no network yet should still start and say so.
 if [ ! -d "$CLAUDE_DIR/plugins/marketplaces" ] && command -v claude >/dev/null 2>&1; then
-    for repo in mksglu/context-mode JuliusBrussee/caveman JuliusBrussee/ponytail; do
+    for repo in mksglu/context-mode JuliusBrussee/caveman DietrichGebert/ponytail; do
         claude plugin marketplace add "$repo" >/dev/null 2>&1 \
             && echo "patchbay: added marketplace $repo" \
             || echo "patchbay: could not add marketplace $repo (continuing)"

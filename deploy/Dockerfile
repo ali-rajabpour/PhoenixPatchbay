@@ -83,6 +83,7 @@ RUN npm install -g \
 
 # Phoenix Patchbay itself. Pin PATCHBAY_REF to a commit for a reproducible
 # build; `main` tracks the latest release.
+ARG PATCHBAY_REPO=https://github.com/ali-rajabpour/PhoenixPatchbay
 ARG PATCHBAY_REF=main
 # No `|| true` here on purpose: a failed install would otherwise produce an
 # image whose only symptom is `patchbay: not found` at runtime, long after the

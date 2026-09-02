@@ -40,4 +40,28 @@ if [ ! -d "$CLAUDE_DIR/plugins/marketplaces" ] && command -v claude >/dev/null 2
     done
 fi
 
+# The bot needs a logged-in CLI, and a fresh deployment has none. Exiting here
+# would restart-loop with a banner, which reads like a crash rather than the
+# one remaining setup step. Hold the container up and say what to do instead;
+# the moment credentials appear, start for real.
+CREDS="$CLAUDE_DIR/.credentials.json"
+if [ ! -f "$CREDS" ]; then
+    cat <<'BANNER'
+
+  Phoenix Patchbay is up, but no coding CLI is logged in yet.
+
+  Run this once, in another terminal:
+
+      docker compose exec patchbay claude
+
+  Sign in when it asks, then leave that shell. The bot starts by itself
+  within ten seconds — no restart needed.
+
+BANNER
+    while [ ! -f "$CREDS" ]; do
+        sleep 10
+    done
+    echo "patchbay: credentials found, starting"
+fi
+
 exec "$@"

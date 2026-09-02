@@ -26,6 +26,11 @@ Then, in Telegram: `/menu` → **Account** to log the Claude CLI in, and
   reaching the host.
 - Claude Code preconfigured with the plugins and hooks that make a
   chat-driven agent affordable to run. See `seed/claude-settings.json`.
+- **Two guards on what reaches the model.** `rtk` compresses shell output, and
+  `read-guard.mjs` refuses to extract an image or PDF until you have said you
+  want it read — a file you sent to be uploaded should not be turned into
+  transcript that every later turn pays for. When you do want it read, the
+  model gets a 1024px WebP or the PDF's text, not the original.
 - One session per Telegram topic. Five topics are five machines that happen to
   share a chat window.
 

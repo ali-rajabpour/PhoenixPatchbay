@@ -1,0 +1,53 @@
+{
+  "$comment": [
+    "Seeded into ~/.claude/settings.json on a container's first start, and never",
+    "touched again — edit the file in the volume, not this one.",
+    "",
+    "The plugins here are the ones that pay for themselves on a bot that runs a",
+    "CLI on every message: rtk and context-mode cut what a tool call costs,",
+    "caveman and ponytail cut what a reply costs, superpowers supplies the",
+    "process skills. All are public.",
+    "",
+    "The two hooks are the ones that would otherwise be discovered the hard way:",
+    "rtk compresses Bash output before it reaches the model, and image-downscale",
+    "hands Read a 1024px copy of a photo instead of the original — measured at",
+    "93 MB -> 267 KB on a real folder, and an image stays in the transcript, so",
+    "every later turn pays for it again."
+  ],
+  "extraKnownMarketplaces": {
+    "context-mode": {
+      "source": { "source": "github", "repo": "mksglu/context-mode" }
+    },
+    "caveman": {
+      "source": { "source": "github", "repo": "JuliusBrussee/caveman" }
+    },
+    "ponytail": {
+      "source": { "source": "github", "repo": "JuliusBrussee/ponytail" }
+    }
+  },
+  "enabledPlugins": {
+    "context-mode@context-mode": true,
+    "caveman@caveman": true,
+    "ponytail@ponytail": true,
+    "superpowers@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "github@claude-plugins-official": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "rtk hook claude" }]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /home/patchbay/.claude/hooks/image-downscale.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

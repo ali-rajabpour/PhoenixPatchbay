@@ -63,6 +63,12 @@ _console = Console()
 def _is_configured() -> bool:
     """Check if bot has a valid configuration."""
     paths = resolve_paths()
+    # A container start supplies its answers through the environment rather
+    # than a keyboard. Do this before the existence check, or the first run
+    # falls through to a wizard that cannot run without a TTY.
+    from phoenix_patchbay.infra.bootstrap import ensure_config
+
+    ensure_config(paths.config_path)
     if not paths.config_path.exists():
         return False
     try:

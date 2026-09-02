@@ -1,0 +1,59 @@
+name: patchbay
+
+services:
+  patchbay:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        # Pin to a commit for a reproducible build; `main` tracks the latest.
+        PATCHBAY_REF: ${PATCHBAY_REF:-main}
+    image: patchbay-agent:local
+    container_name: patchbay
+    hostname: patchbay
+    # No init: true — the image's ENTRYPOINT is already tini. Adding docker-init
+    # on top makes tini a non-PID-1 child, which it warns about and which breaks
+    # zombie reaping.
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+    environment:
+      # The only two answers the setup wizard would have asked for. On first
+      # start they become ~/.phoenix-patchbay/config/config.json; after that the
+      # file is authoritative and these are ignored.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?set it in .env}
+      TELEGRAM_ALLOWED_USER_IDS: ${TELEGRAM_ALLOWED_USER_IDS:?your numeric Telegram user id}
+      # Optional: directories the agent may work in, as `label=/path` or a bare
+      # path. Everything under /home/patchbay is inside the container.
+      PATCHBAY_PROJECT_ROOTS: ${PATCHBAY_PROJECT_ROOTS:-}
+      TZ: ${TZ:-UTC}
+
+    # Everything stateful lives here: config, credentials, projects, memory.
+    # A named volume (not a bind mount) keeps ownership sane and survives
+    # image rebuilds.
+    volumes:
+      - patchbay_home:/home/patchbay
+
+    # Telegram long-polling is outbound-only, so nothing is published. The
+    # container is unreachable from the host, the LAN and the internet.
+    # ports: intentionally absent
+
+    # no-new-privileges is deliberately NOT set: it blocks sudo, and the agent
+    # needs to install packages inside its own workspace. The real boundary is
+    # the container, and ideally a rootless Docker daemon.
+
+    # Guardrails so a runaway agent cannot starve the host.
+    mem_limit: ${PATCHBAY_MEM_LIMIT:-8g}
+    memswap_limit: ${PATCHBAY_MEM_LIMIT:-8g}
+    cpus: ${PATCHBAY_CPUS:-4.0}
+    pids_limit: 4096
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  patchbay_home:
+    name: patchbay_home

@@ -47,6 +47,8 @@ desktop.ini
 # Environment & secrets
 .env
 .env.*
+# ...but the template a new deployment starts from has to ship.
+!deploy/.env.example
 
 # Runtime
 *.pid

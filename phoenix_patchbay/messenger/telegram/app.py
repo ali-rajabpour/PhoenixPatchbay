@@ -954,16 +954,22 @@ class TelegramBot:
         with contextlib.suppress(TelegramAPIError):
             await self._bot.delete_message(chat_id=chat_id, message_id=message.message_id)
 
-        # Sent with the panel attached so the toggle exists from now on; after
-        # this the button sends /menu and the user never types it again.
+        # Telegram only accepts a reply keyboard riding on a message, so the
+        # panel needs a carrier. The carrier is not worth keeping: the keyboard
+        # is chat-level state that outlives the message that installed it, so
+        # delete it once sent. Leaving it behind put a fresh notice in the topic
+        # on every /menu that no close button could clear.
         with contextlib.suppress(TelegramAPIError):
-            await self._bot.send_message(
+            carrier = await self._bot.send_message(
                 chat_id,
                 markdown_to_telegram_html(t("menu.panel_ready")),
                 reply_markup=build_toggle_panel(),
                 message_thread_id=thread_id,
                 parse_mode=ParseMode.HTML,
             )
+            # If this fails the notice stays, which is the old behaviour and
+            # still explains itself — hence the wording stays a sentence.
+            await self._bot.delete_message(chat_id=chat_id, message_id=carrier.message_id)
 
         await self._send_menu(get_session_key(message), thread_id)
 

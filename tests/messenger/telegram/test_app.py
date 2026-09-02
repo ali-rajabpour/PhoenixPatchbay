@@ -1452,3 +1452,42 @@ class TestPersonaPrompt:
 
         assert held is False
         bot_instance.send_message.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# _on_menu — the reply-keyboard carrier
+# ---------------------------------------------------------------------------
+
+
+class TestMenuPanelCarrier:
+    """The panel's carrier message must not survive.
+
+    A reply keyboard can only be installed by sending a message, but that
+    message is scaffolding. Leaving it behind meant every /menu dropped another
+    "Menu panel installed" notice into the topic, which the inline menu's close
+    button cannot clear because it is a plain message, not a menu.
+    """
+
+    @pytest.mark.asyncio
+    async def test_carrier_is_deleted_after_installing_the_panel(self) -> None:
+        from aiogram.types import ReplyKeyboardMarkup
+
+        tg_bot, bot_instance = _make_tg_bot()
+        bot_instance.delete_message = AsyncMock()
+        carrier = MagicMock()
+        carrier.message_id = 555
+        bot_instance.send_message = AsyncMock(return_value=carrier)
+
+        msg = _make_message(chat_id=1, message_id=10, text="/menu")
+
+        with patch.object(tg_bot, "_send_menu", new=AsyncMock()):
+            await tg_bot._on_menu(msg)
+
+        # The panel really was attached to the message we then deleted.
+        assert isinstance(
+            bot_instance.send_message.await_args.kwargs["reply_markup"], ReplyKeyboardMarkup
+        )
+        deleted = {c.kwargs["message_id"] for c in bot_instance.delete_message.await_args_list}
+        assert 555 in deleted, "carrier message left in the chat"
+        # The /menu command itself is deleted too, and that is a different id.
+        assert 10 in deleted

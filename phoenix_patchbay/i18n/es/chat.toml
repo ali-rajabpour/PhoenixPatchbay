@@ -1,0 +1,655 @@
+# Cadenas de chat en español (Markdown, enviadas a Telegram/Matrix/API).
+# Tono cercano, cálido — como un colega simpático, no un robot corporativo.
+
+# -- Gestión de sesiones -------------------------------------------------------
+
+[session]
+error_header = "**Error de sesión**"
+error_body = """\
+[{model}] Algo salió mal.
+Tu sesión se ha conservado — envía otro mensaje para reintentar.
+Usa /new para empezar una sesión nueva si el problema persiste."""
+error_cause = "**Causa:** {hint}"
+error_detail = "**Detalle:** `{detail}`"
+error_auth = "Autenticación fallida. Por favor, vuelve a autenticarte en la CLI (p. ej. `codex auth` o revisa tu API key)."
+error_rate = "Límite de peticiones alcanzado. Espera un momento e inténtalo de nuevo."
+error_context = "Longitud de contexto excedida. Usa /new para empezar una sesión nueva."
+
+reset_header = "**Sesión reiniciada**"
+reset_body = """\
+Sesión reiniciada para {provider} en este chat.
+Las sesiones de otros proveedores se han conservado.
+¡Escribe un mensaje para continuar!"""
+
+age_warning = "[La sesión tiene {age}. Usa /new para empezar de cero.]"
+
+empty_turn = "_(El agente actualizó su memoria en silencio — envía otro mensaje para continuar.)_"
+
+recovered = "_No se pudo restaurar la sesión anterior. Se inició una nueva automáticamente._"
+recovery_failed = "Could not recover your session after a fresh start. Please try again or use /new to start over."
+sigkill = "La ejecución fue interrumpida. Por favor, envía la misma solicitud de nuevo."
+
+not_found = "Sesión '{name}' no encontrada."
+ended = "La sesión '{name}' ha terminado. Inicia una nueva con /session."
+still_running = "La sesión '{name}' aún está procesando. Espera o usa /stop para cancelar."
+
+# -- Stop/interrupción --------------------------------------------------------
+
+[stop]
+header = "**Agente detenido**"
+killed = "{provider} terminado. Todos los mensajes en cola descartados."
+nothing = "No hay nada ejecutándose ahora mismo."
+
+[interrupt]
+done = "{count} proceso(s) interrumpido(s)."
+nothing = "No hay procesos activos."
+
+[abort_all]
+done = "{count} proceso(s) detenido(s) en todos los agentes."
+nothing = "No se encontraron procesos activos en ningún agente."
+
+# -- Timeout -------------------------------------------------------------------
+
+[timeout]
+error_header = "**Timeout**"
+error_body = """\
+[{model}] La CLI fue terminada tras {minutes} min.
+Tu sesión se ha conservado — envía un mensaje para continuar donde lo dejaste.
+Usa /new para empezar una sesión nueva."""
+
+result_header = "**Timeout**"
+result_body = """\
+El agente agotó el tiempo tras {elapsed}s (límite: {configured}s).
+Prueba con un prompt más corto o pregunta en pasos más pequeños."""
+
+warning_minutes = "Timeout en {mins} min"
+warning_seconds = "Timeout en {secs}s"
+extended = "Timeout extendido (+{secs}s, quedan {remaining})"
+
+generic = "El agente agotó el tiempo. Por favor, inténtalo de nuevo."
+
+# -- Inicio / ciclo de vida ----------------------------------------------------
+
+[startup]
+first_start_header = "**Bot iniciado**"
+first_start_body = "Primer arranque — ¡listos para la acción!"
+reboot_header = "**Bot iniciado**"
+reboot_body = "Reinicio del sistema detectado — ¡estamos de vuelta!"
+
+restart_default = "Reinicio completado."
+restart_header = "**Reiniciando**"
+restart_body = "El bot se está apagando y volverá en un momento."
+
+upgrade_complete = "**Actualización completada** `{old}` -> `{new}`"
+
+matrix_restart = "**Bot reiniciado** ({reason})"
+matrix_update = "**Actualización disponible:** `{version}`\nUsa `/upgrade` para actualizar."
+matrix_upgraded_restarting = "Actualizado de {old} a {new}. Reiniciando..."
+
+[recovery]
+named_header = "**Auto-recuperación**"
+named_body = "Reanudando sesión en segundo plano **{session}**\n`{preview}`"
+interrupted_header = "**Tarea interrumpida**"
+interrupted_body = "Una tarea fue interrumpida durante el reinicio.\n`{preview}`\nPor favor, reenvía para continuar."
+
+# -- Memoria -------------------------------------------------------------------
+
+[memory]
+header = "**Memoria principal**"
+empty = "Vacía. El agente irá construyendo su memoria mientras interactúan."
+empty_tip = "*Consejo: Pídele a tu agente que \"recuerde\" algo para empezar.*"
+filled_tip = "*Consejo: El agente lee y actualiza esto automáticamente.*"
+
+# -- Estado --------------------------------------------------------------------
+
+[status]
+header = "**Estado**"
+no_session = "No hay sesión activa."
+model_line = "Modelo: {model}"
+model_line_configured = "Modelo: {model} (configurado: {configured})"
+effort_line = "Esfuerzo: {effort}"
+topic_line = "Tema: {topic}"
+session_line = "Sesión: `{sid}`"
+messages_line = "Mensajes: {count}"
+tokens_line = "Tokens: {tokens}"
+cost_line = "Coste: ${cost}"
+bg_header = "Tareas en segundo plano: {count} en ejecución"
+auth_header = "Auth:"
+account_line = "Cuenta de Claude: {account}"
+agents_header = "Agentes:"
+
+# -- Pie técnico ---------------------------------------------------------------
+
+[footer]
+model = "Modelo: {name}"
+tokens = "Tokens: {total} (entrada: {input}, salida: {output})"
+cost = "Coste: ${cost}"
+time = "Tiempo: {secs}s"
+
+# -- Actualización -------------------------------------------------------------
+
+[upgrade]
+dev_header = "**Instalación de desarrollo**"
+dev_body = "La auto-actualización no está disponible en instalaciones de desarrollo.\nActualiza con `git pull` en el directorio del proyecto."
+pypi_unreachable = "No se pudo contactar con PyPI. Inténtalo más tarde."
+up_to_date_header = "**Ya estás al día**"
+up_to_date_body = "Instalado: `{current}`\nÚltima:    `{latest}`\n\nTienes la versión más reciente."
+available_header = "**Actualización disponible**"
+available_body = "Instalado: `{current}`\nNueva:     `{latest}`\n\n¿Actualizar ahora?"
+btn_changelog = "Changelog v{version}"
+btn_yes = "Sí, actualizar ahora"
+btn_not_now = "Ahora no"
+
+# -- Diagnóstico ---------------------------------------------------------------
+
+[diagnose]
+header = "**Diagnóstico del sistema**"
+version_line = "Versión: `{version}`"
+configured_line = "Configurado: {provider} / {model}"
+effective_line = "Runtime efectivo: {provider} / {model}"
+log_header = "Logs recientes (últimas 50 líneas):"
+no_log = "No se encontró archivo de log."
+codex_cache_not_init = "Codex Model Cache: Observer no inicializado"
+codex_cache_not_loaded = "Codex Model Cache: No cargado"
+codex_cache_info = "Codex Model Cache:\n  Última actualización: {updated}\n  Modelos en caché: {count}\n  Modelo por defecto: {default}"
+health_header = "**Salud multi-agente:**"
+
+# -- Tareas --------------------------------------------------------------------
+
+[tasks]
+too_many = "Demasiadas tareas en segundo plano ({max} máximo)"
+internal_error = "Error interno (revisa los logs)"
+
+
+
+
+
+# -- Selector de sesiones ------------------------------------------------------
+
+[sessions]
+header = "**Sesiones**"
+empty = "No hay sesiones activas."
+start_hint = "Inicia una con `/session <prompt>`."
+followup_hint = "Seguimiento: `@<nombre> <mensaje>`"
+active_count = "Activas: {count}"
+btn_end = "Terminar {name}"
+btn_refresh = "Actualizar"
+btn_end_all = "Terminar todas"
+topics_header = "Temas:"
+named_header = "Con nombre:"
+named_empty = "No hay sesiones activas.\n  Inicia una con `/session <prompt>`."
+
+ended_all_one = "Todas las {count} sesión(es) terminadas."
+ended_all_none = "No hay sesiones activas."
+ended_one = "Sesión '{name}' terminada."
+ended_not_found = "Sesión '{name}' no encontrada."
+unknown_action = "Acción desconocida."
+
+# -- Selector de modelos -------------------------------------------------------
+
+[model]
+header = "**Selector de modelo**"
+current = "Actual: {model}"
+current_with_effort = "Actual: {model} ({effort})"
+configured_default = "Por defecto configurado: {configured}"
+
+switched = "**Modelo cambiado.**"
+model_line = "Modelo: {model}"
+model_change = "Modelo: {old} -> {new}"
+provider_change = "Proveedor: {old} -> {new}"
+reasoning_line = "Razonamiento: {effort}"
+effort_updated = "Nivel de razonamiento establecido en {effort}."
+already_running = "Ya está ejecutando {model}. Sin cambios."
+
+resume_hint = """\
+Reanudando sesión `{sid}`.
+Ya has enviado {count} {label} en esta sesión de proveedor.
+Modelo actual: `{model}`.
+Usa /new para empezar una sesión nueva."""
+resume_msg_one = "mensaje"
+resume_msg_other = "mensajes"
+
+no_auth = "No se encontraron proveedores autenticados.\nEjecuta `claude auth`, `codex auth`, o autentícate en `gemini` para empezar."
+pick_provider = "Elige un proveedor:"
+select_claude = "Selecciona modelo de Claude:"
+select_gemini = "Selecciona modelo de Gemini:"
+select_codex = "Selecciona modelo de Codex:"
+select_antigravity = "Selecciona modelo de Antigravity:"
+select_grok = "Selecciona modelo de Grok Build:"
+no_codex = "No hay modelos de Codex disponibles."
+no_gemini = "No se encontraron modelos de Gemini en los archivos locales de la CLI."
+thinking_level = "Nivel de razonamiento para {model}:"
+unknown_action = "Acción desconocida."
+btn_back = "<< Atrás"
+switched_while_busy = "**Modelo cambiado.** El proceso actual sigue en ejecución — el nuevo modelo se aplicará al siguiente mensaje."
+
+# -- Selector de cron ----------------------------------------------------------
+
+[cron]
+header = "**Tareas programadas**"
+empty = "No hay tareas cron configuradas."
+empty_hint = "*Pídele a tu agente: \"Haz una revisión de backup todos los días a las 9am\"*"
+job_line = "{number}. **{title}** ({status}){last_run}\n   `{schedule}`"
+status_active = "activa"
+status_paused = "pausada"
+btn_disable = "{number}. Desactivar"
+btn_enable = "{number}. Activar"
+btn_prev = "<< Anterior"
+btn_refresh = "Actualizar"
+btn_next = "Siguiente >>"
+btn_all_on = "Todas ON"
+btn_all_off = "Todas OFF"
+info_active = "{active}/{total} activas"
+info_page = "página {current}/{total}"
+all_enabled = "Todas las tareas cron activadas."
+all_disabled = "Todas las tareas cron desactivadas."
+already_enabled = "Todas las tareas cron ya estaban activas."
+already_disabled = "Todas las tareas cron ya estaban desactivadas."
+toggled = "'{title}' {state}."
+list_changed = "La lista de cron ha cambiado. Por favor, inténtalo de nuevo."
+unknown_action = "Acción desconocida. Lista de cron actualizada."
+
+# -- Bienvenida (Telegram) ----------------------------------------------------
+
+[welcome]
+header = "**¡Bienvenido a Phoenix Patchbay{name}!**"
+tagline = """\
+Despliega desde el bolsillo. Automatiza desde el sofá.
+Claude Code, Codex y Gemini — directo desde Telegram."""
+hint_model = "/model — cambiar modelos"
+hint_info = "/info — docs y enlaces"
+hint_help = "/help — todos los comandos"
+
+no_auth = "Ninguna CLI autenticada aún. Ejecuta `claude auth`, `codex auth`, o autentícate en `gemini` para empezar."
+auth_line = "{providers} autenticado(s).\nModelo: **{model}**"
+
+btn_know = "¡Vamos a conocernos!"
+btn_system = "¡Echa un vistazo al sistema!"
+btn_who = "¿Quién eres tú? ¿Quién soy yo?"
+
+prompt_know = """\
+Hey, acabo de configurar Phoenix Patchbay y quiero que me conozcas. \
+Pregúntame todo lo que necesites saber para que trabajemos bien juntos — \
+mi nombre, a qué me dedico, en qué estoy trabajando, cómo me gusta comunicarme. \
+Guarda lo que aprendas en tu memoria."""
+prompt_system = """\
+Echa un vistazo al sistema en el que estás ejecutándote. \
+Revisa el SO, herramientas instaladas, carpetas de proyecto, lo que te parezca interesante. \
+Dame un resumen rápido de lo que encuentres."""
+prompt_who = """\
+¡Empecemos! Preséntate — ¿quién eres, qué puedes hacer por mí? \
+Luego pregúntame quién soy y en qué necesito ayuda."""
+
+# -- Información ---------------------------------------------------------------
+
+[info]
+header = "**Phoenix Patchbay**"
+version = "Versión: `{version}`"
+telegram_description = "Agentes de código IA (Claude, Codex, Gemini) en Telegram.\nSesiones con nombre, memoria persistente, tareas cron, webhooks, streaming en vivo."
+matrix_description = "Agentes de código IA (Claude, Codex, Gemini) en Matrix.\nSesiones con nombre, memoria persistente, tareas cron, webhooks, streaming en vivo."
+slack_description = "Agentes de código IA (Claude, Codex, Gemini) en Slack.\nSesiones con nombre, memoria persistente, tareas cron, webhooks, streaming en vivo."
+
+# -- Ayuda (categorías) -------------------------------------------------------
+
+[help]
+header = "**Referencia de comandos**"
+cat_daily = "Diario"
+cat_automation = "Automatización"
+cat_multiagent = "Multi-agente"
+cat_browse = "Archivos e info"
+cat_maintenance = "Mantenimiento"
+footer = "Envía cualquier mensaje para empezar a trabajar con tu agente."
+matrix_footer = "Usa el prefijo `!` o `/`. Envía cualquier mensaje para empezar."
+slack_footer = "Usa comandos como `help` o `/help`. Envía cualquier otro mensaje para empezar."
+
+# -- Multi-agente --------------------------------------------------------------
+
+[agents]
+header = "**Agentes**"
+empty = "No hay agentes."
+not_active = "El modo multi-agente no está activo."
+usage_stop = "Uso: /agent_stop <nombre>"
+usage_start = "Uso: /agent_start <nombre>"
+usage_restart = "Uso: /agent_restart <nombre>"
+cannot_stop_main = "No se puede detener el agente principal."
+not_running = "El agente '{name}' no está en ejecución."
+stopped = "Agente '{name}' detenido."
+
+system_header = "**Sistema multi-agente**"
+telegram_explanation = """\
+El sistema multi-agente te permite ejecutar bots adicionales como \
+sub-agentes — cada uno con su propio token de Telegram, workspace \
+y lista de usuarios. Todos los agentes comparten un solo proceso y pueden \
+comunicarse a través del bus inter-agente."""
+matrix_explanation = """\
+El sistema multi-agente te permite ejecutar bots adicionales como \
+sub-agentes — cada uno con su propio workspace y lista de usuarios. \
+Todos los agentes comparten un solo proceso y pueden comunicarse \
+a través del bus inter-agente."""
+commands_header = "**Comandos**"
+setup_header = "**Configuración**"
+setup_instruction = "Pídele a tu agente que cree un nuevo sub-agente o edita `agents.json` en tu directorio home de patchbay."
+
+# -- Errores (genéricos) ------------------------------------------------------
+
+[error]
+generic = "Error: {detail}"
+check_logs = "Error: revisa los logs para más detalles."
+
+# -- Advertencia de Gemini -----------------------------------------------------
+
+[gemini]
+missing_key = """\
+Gemini está configurado en modo API-key, pero `gemini_api_key` en \
+`~/.phoenix-patchbay/config/config.json` es `"null"` o está vacío.
+Por qué es necesario: cuando patchbay llama a la CLI de Gemini como proceso externo, \
+la CLI de Gemini no expone una API key introducida internamente al proceso que la llama.
+Configura una API key real en `gemini_api_key` y reinicia `patchbay`."""
+
+# -- Nueva sesión (handler) ---------------------------------------------------
+
+# -- Específico del transporte ------------------------------------------------
+[telegram]
+group_rejected = "Este bot no está autorizado para este grupo."
+channel_not_whitelisted = "Este canal no está en la lista blanca, me voy."
+where_header = "**Dónde**"
+where_no_tracker = "Rastreador de chats no disponible."
+where_empty = "Aún no se ha registrado actividad de chat."
+leave_usage_header = "**Uso**"
+leave_usage = "`/leave <group_id>`"
+leave_invalid_id = "ID de grupo inválido."
+leave_failed = "No se pudo salir: {error}"
+left_group = "Salió del grupo <code>{group_id}</code>."
+
+[matrix]
+room_rejected = "Este bot no está autorizado para esta sala."
+
+# -- Ayuda de sesiones (específica del transporte) ----------------------------
+
+[session_help]
+header = "**Sesiones en segundo plano**"
+telegram_explanation = """\
+Las sesiones en segundo plano ejecutan tareas en paralelo sin bloquear \
+el chat principal. Cada sesión recibe un nombre único y se ejecuta \
+de forma independiente — puedes tener varias sesiones activas a la vez."""
+usage_header = "**Uso**"
+followup_header = "**Seguimiento**"
+followup_line = "`@nombre-sesión <mensaje>` — envía un seguimiento a una sesión en ejecución"
+commands_header = "**Comandos**"
+telegram_sessions_cmd = "`/sessions` — ver y gestionar todas las sesiones en segundo plano"
+telegram_stop_cmd = "`/stop` — cancelar la sesión en ejecución"
+matrix_session_cmd = "`!session <prompt>` — iniciar una sesión en segundo plano"
+matrix_sessions_cmd = "`!sessions` — ver y gestionar todas las sesiones"
+matrix_stop_cmd = "`!stop` — cancelar la sesión en ejecución"
+default_provider = "`/session <prompt>` — proveedor por defecto"
+claude_single = "`/session <prompt>` — se ejecuta en Claude"
+claude_model = "`/session @opus <prompt>` — modelo específico"
+codex_single = "`/session <prompt>` — se ejecuta en Codex"
+grok_single = "`/session <prompt>` — se ejecuta en Grok Build"
+gemini_single = "`/session <prompt>` — se ejecuta en Gemini"
+gemini_model = "`/session @flash <prompt>` — modelo específico"
+grok_model = "`/session @grok-4.5 <prompt>` — modelo específico"
+claude_multi = "`/session @opus <prompt>` — Claude (opus)"
+codex_multi = "`/session @codex <prompt>` — Codex"
+grok_multi = "`/session @grok <prompt>` — Grok Build"
+gemini_multi = "`/session @flash <prompt>` — Gemini (flash)"
+explicit = "`/session @provider model <prompt>` — explícito"
+
+# -- Explorador de archivos ---------------------------------------------------
+
+[file_browser]
+btn_cancel = "Cancelar"
+btn_no_upstream = "⚠︎ Sin upstream"
+btn_pull = "⤓ Pull"
+btn_pull_n = "⤓ Pull {count}"
+btn_push_confirm = "⤒ Enviar {count} ahora"
+btn_push_n = "⤒ Push {count}"
+btn_push_none = "⤒ Nada que enviar"
+git_dirty = " · {count} sin confirmar"
+git_line = "`{branch}` · {ahead} por delante · {behind} por detrás (último fetch){dirty}"
+git_no_upstream = "`{branch}` no tiene rama upstream."
+pull_failed = "⚠️ Falló el pull."
+pull_ok = "✅ Actualizado."
+push_confirm = "¿Enviar {count} commit(s) de `{branch}`?"
+push_failed = "⚠️ Falló el push."
+push_nothing = "Nada que enviar — la rama coincide con su upstream."
+push_ok = "✅ Enviado."
+pick_root = "Elige una ubicación:"
+no_roots = "No hay directorios navegables configurados."
+tap_hint = "Toca una carpeta para abrirla."
+btn_home = "🏠 Inicio"
+btn_zip = "🗜 Toda la carpeta"
+too_large = "`{name}` ocupa {mb} MB — supera el límite de 50 MB de Telegram para bots. Pide al agente que lo divida o resuma."
+zip_too_large = "Esa carpeta es demasiado grande para enviarla como zip. Abre una subcarpeta e inténtalo de nuevo."
+send_failed = "No se pudo enviar `{name}`."
+header = "**Explorador de archivos**"
+empty = "(vacío)"
+btn_back = "◀︎ Atrás"
+
+# Variante Matrix
+matrix_header = "**Archivos del workspace**"
+matrix_hint = "_Usa `!showfiles <directorio>` para listar un directorio específico._"
+matrix_dir_not_found = "Directorio `{subdir}` no encontrado."
+matrix_permission_denied = "(permiso denegado)"
+matrix_file_count = "{count} archivo(s)"
+matrix_no_dirs = "(no se encontraron directorios del workspace)"
+
+# -- Handler de actualización (Telegram) ---------------------------------------
+btn_download = "⬇️ Descargar"
+btn_download_file = "📄 Un solo archivo"
+download_menu = "Descargar de `{dir}`. ¿Qué quieres?"
+pick_file = "Toca un archivo en `{dir}` para que te lo envíe."
+no_files = "No hay archivos en esta carpeta."
+file_list_truncated = "Mostrando los primeros {count} archivos."
+btn_bind = "📌 Usar esta carpeta"
+btn_bind_confirm = "📌 Reasignar"
+bind_confirm = "Esta conversación ya trabaja en `{current}`. ¿Moverla a `{new}`?"
+bound = "📌 Esta conversación ahora trabaja en `{dir}`."
+btn_path = "📋 Ruta"
+path_dir = "Ruta de la carpeta — toca para copiar:"
+path_file = "Ruta del archivo — toca para copiar:"
+path_pick = "O elige un archivo para ver su propia ruta:"
+
+[upgrade_handler]
+btn_changelog = "Changelog v{version}"
+btn_upgrade_now = "Actualizar ahora"
+btn_later = "Más tarde"
+skipped = "Actualización omitida."
+already_in_progress = "Actualización en curso. Por favor, espera."
+in_progress = "Actualizando a {version}..."
+verification_failed = "La actualización no pudo verificar una nueva versión instalada (sigue en {version}) tras reintento automático.{details}"
+restarting = "El bot se está reiniciando..."
+no_changelog = "No se encontró changelog para v{version}."
+changelog_header = "**Changelog v{version}**"
+
+# -- Notificaciones multi-agente -----------------------------------------------
+
+[multiagent]
+async_task_received = "📥 **Tarea asíncrona recibida** de `{sender}`\nSesión: `{session}` · ID de tarea: `{task_id}`\n\n_{preview}_"
+
+[effort]
+select = "Selecciona el esfuerzo de razonamiento para {model}:"
+unsupported = "El esfuerzo de razonamiento no es configurable para el proveedor `{provider}`."
+
+[account]
+default_label = "predeterminada"
+active_line = "**Cuenta de Claude:** {account}"
+none_configured = "No hay cuentas de Claude configuradas. Añade un mapa `claude_accounts` a config.json, p. ej. `{\"work\": \"~/.claude-work\"}`."
+select = "Elige el almacén de credenciales con el que autenticarte:"
+switched = "Cambiado a la cuenta de Claude **{account}**. Se aplica desde el siguiente mensaje: la sesión actual sigue siendo reanudable."
+switched_docker_warning = "Cambiado a la cuenta de Claude **{account}**, pero el modo sandbox de Docker está activado y no monta el almacén de credenciales en el contenedor."
+unknown = "Cuenta de Claude `{account}` desconocida. Configuradas: {known}"
+
+[skills]
+builtin_note = "_Los skills integrados de Claude no aparecen aquí: viven dentro del binario y se cargan automáticamente._"
+header = "**Skills** — {total} disponibles en {groups} grupos"
+pick_group = "Elige un grupo:"
+group_header = "**{group}** — {count} skills"
+tap_hint = "Toca un skill para copiar su comando, luego pégalo y añade tu petición."
+personal_label = "personal"
+btn_back = "◀︎ Grupos"
+btn_copy = "📋 Copiar /{name}"
+none_found = "No se encontraron skills. Comprueba que los plugins estén instalados y activados."
+not_found = "No hay ningún skill llamado `{name}`. Usa /skills para explorar."
+no_description = "(sin descripción)"
+detail_header = "**{name}** — {group}"
+slash_only_note = "🔒 Solo por slash: este skill debe invocarse explícitamente; el modelo no puede cargarlo por su cuenta."
+
+[persona]
+header = "**Persona**"
+ask_header = "**¿Qué persona debe encargarse?**"
+none_defined = "No hay personas definidas. Añade archivos de agente a tu configuración de Claude Code."
+default_label = "Predeterminada"
+selected = "Persona: **{persona}**"
+switched_notice = "Persona activa: **{new}**. Esta conversación funcionaba antes como {old}; los turnos anteriores del historial se produjeron con esa persona y no describen la actual."
+active_notice = "Persona activa: **{persona}**. Esta indicación es la vigente en este turno; sigue el ámbito y el estilo de trabajo de esta persona."
+
+[upload]
+btn_upload = "⬆️ Subir aquí"
+btn_files = "📄 Enviar archivos"
+btn_folder = "📦 Una carpeta (.zip)"
+btn_confirm = "✅ Mover {count}"
+btn_cancel = "✖ Cancelar"
+menu = "Subir a `{dir}`. ¿Qué vas a enviar?"
+await_files = "Envía ahora uno o más archivos. No se escribe nada en `{dir}` hasta que confirmes."
+await_folder = "Envía un archivo .zip. Su contenido se listará para confirmación antes de escribir nada en `{dir}`."
+staging_header = "📥 Preparado para `{dir}`"
+overwrite_marker = "⚠️ reemplaza"
+overwrite_note = "⚠️ Se reemplazarán {count} archivo(s) existente(s)."
+more = "…y {count} más"
+nothing = "Aún no hay nada preparado."
+moved = "✅ Se movieron {count} archivo(s) a `{dir}`."
+cancelled = "Subida cancelada — no se escribió nada."
+landed = "📎 Guardado en `{dir}`."
+download_failed = "⚠️ No se pudo recibir ese archivo."
+expect_zip = "⚠️ `{name}` no es un .zip. Envía un archivo comprimido o vuelve atrás y elige Enviar archivos."
+zip_busy = "⚠️ Ya se está revisando `{name}` — confírmalo o cancélalo primero."
+not_a_zip = "⚠️ Ese archivo no es un .zip legible."
+zip_unsafe = "⚠️ Rechazado: el archivo contiene entradas que escribirían fuera de la carpeta de destino."
+zip_too_big = "⚠️ Rechazado: el archivo se descomprime a más de {mb} MB."
+zip_too_many = "⚠️ Rechazado: el archivo contiene más de {count} ficheros."
+zip_empty = "⚠️ Ese archivo comprimido no contiene ficheros."
+
+[folder]
+header = "Carpeta de esta conversación:"
+ask_header = "Esta conversación aún no tiene carpeta. Elige dónde debe trabajar el agente:"
+none_defined = "No hay carpetas de proyecto configuradas, así que el espacio compartido es el único lugar posible."
+shared_label = "🗂 Espacio compartido"
+selected = "📌 Trabajando en {dir}."
+general_locked = "**General no tiene carpeta.** Es el área compartida de este grupo: siempre trabaja en el espacio de trabajo compartido y no puede vincularse a un directorio de proyecto. Abre el tema del proyecto y elige la carpeta allí."
+
+[topics]
+consult_name = "Consult"
+general_title = "General"
+general_scope = "Esta es el área compartida. Los agentes trabajan aquí siempre en el espacio de trabajo compartido: General no puede vincularse a una carpeta de proyecto, así que nada escrito aquí puede alcanzar un proyecto por accidente."
+general_care = "El trabajo de proyecto va en el tema propio de ese proyecto, donde la carpeta se vincula una vez y se queda."
+consult_title = "Consult"
+consult_purpose = "Para preguntas, reflexión y segundas opiniones — no para trabajo de proyecto."
+consult_isolation = "Los agentes aquí tienen instrucciones de no leer ni escribir nada fuera de la carpeta de este tema. Es una regla que siguen, no un muro que no puedan cruzar, así que no pegues aquí nada que te importe que se lea."
+consult_wipe = "Este tema y todo lo que contiene, incluidos sus archivos y su historial, se borra automáticamente. Nada aquí es duradero."
+consult_schedule = "Frecuencia: {schedule}"
+consult_no_wipe = "El borrado automático está desactivado para este tema, así que todo lo de aquí permanece hasta que alguien lo elimine."
+
+[consult]
+header = "**Borrado de Consult**"
+explains = "Todo lo que hay en el tema Consult — sus archivos, sus mensajes y su historial — se borra según esta frecuencia."
+schedule_hourly = "Cada hora"
+schedule_6h = "Cada 6 horas"
+schedule_daily = "A diario a las {hour}:00"
+schedule_weekly = "Semanal, lunes {hour}:00"
+schedule_off = "Nunca"
+
+[edits]
+btn_manage = "🛠 Gestionar"
+btn_rename = "✏️ Renombrar"
+btn_newdir = "📁 Nueva carpeta"
+btn_delete = "🗑 Eliminar"
+btn_apply = "✅ Aplicar"
+btn_delete_continue = "Continuar"
+btn_delete_now = "🗑 Eliminar ya"
+manage = "Gestionar `{dir}`. Esto cambia archivos en el disco."
+ask_rename = "Envía el nuevo nombre para `{name}`."
+ask_newdir = "Envía un nombre para la nueva carpeta en `{dir}`."
+confirm_rename = "¿Renombrar `{old}` a `{new}` en `{dir}`?"
+confirm_newdir = "¿Crear la carpeta `{new}` en `{dir}`?"
+delete_first = "⚠️ Eliminar `{name}` — {count} archivo(s), {size}. Esto no se puede deshacer."
+delete_second = "⚠️ Última oportunidad. `{name}` y sus {count} archivo(s) se eliminarán de `{dir}` de forma permanente."
+delete_large = "Son {count} archivos. Nadie ha leído esa lista — asegúrate."
+renamed = "✏️ `{old}` renombrado a `{new}`."
+created = "📁 `{name}` creada."
+deleted = "🗑 `{name}` eliminado."
+exists = "⚠️ `{name}` ya existe aquí."
+failed = "⚠️ No se pudo cambiar `{name}`."
+gone = "⚠️ Eso ya no está."
+refuse_root = "⚠️ Esa es una raíz de proyecto configurada. Cámbiala en la configuración, no aquí."
+refuse_repo = "⚠️ Eso es un repositorio git. Sus archivos sin seguimiento no existen en ningún otro sitio, así que no se eliminará."
+name_empty = "⚠️ Se requiere un nombre."
+name_illegal = "⚠️ Un nombre no puede contener una barra."
+name_traversal = "⚠️ Ese nombre no está permitido."
+name_too_long = "⚠️ Ese nombre es demasiado largo."
+btn_move = "✂️ Mover"
+btn_copy = "⧉ Copiar"
+btn_paste_move = "📥 Mover {name} aquí"
+btn_paste_copy = "📥 Copiar {name} aquí"
+btn_clip_cancel = "Cancelar"
+btn_paste_now = "✅ Pegar aquí"
+marked_move = "✂️ `{name}` está marcado para mover. Abre la carpeta de destino y toca Gestionar."
+marked_copy = "⧉ `{name}` está marcado para copiar. Abre la carpeta de destino y toca Gestionar."
+clip_cleared = "Ya no hay nada marcado."
+paste_confirm = "¿Copiar `{name}` en `{dir}` — {count} archivo(s), {size}?"
+paste_confirm_move = "¿Mover `{name}` a `{dir}` — {count} archivo(s), {size}?"
+moved = "✂️ `{name}` movido."
+copied = "⧉ `{name}` copiado."
+paste_exists = "⚠️ Ya existe algo con ese nombre. Nunca se sobrescribe nada: cambia el nombre de uno primero."
+paste_into_self = "⚠️ Una carpeta no puede pegarse dentro de sí misma."
+paste_same_dir = "⚠️ Ya está en esa carpeta."
+paste_no_dir = "⚠️ Elige una carpeta donde pegar."
+paste_outside = "⚠️ Ese destino está fuera de las carpetas navegables."
+
+[menu]
+header = "**Menú**"
+hint = "Elige una acción o ✕ para cerrar."
+btn_close = "✕ Cerrar"
+btn_back = "◀︎ Menú"
+panel_ready = "Panel de menú instalado. Toca la cuadrícula junto al cuadro de mensaje."
+item_files = "📁 Archivos"
+item_folder = "📌 Carpeta"
+item_persona = "👤 Persona"
+item_model = "🧠 Modelo"
+item_account = "🔑 Cuenta"
+item_skills = "🧩 Skills"
+item_compact = "🗜 Compactar"
+item_clear = "🧹 Limpiar y nuevo"
+item_handoff = "📋 Handoff"
+item_status = "📊 Estado"
+item_consult = "🧭 Consult"
+item_help = "❓ Ayuda"
+
+[handoff]
+nothing_to_compact = "Nada que compactar — esta conversación aún no tiene sesión activa. Envía un mensaje primero."
+compact_no_handoff = "⚠️ Compactación detenida: no se escribió ningún handoff, así que no habría nada que llevar. La sesión no ha cambiado."
+compacting = "🗜 Compactando — consolidando el handoff y luego iniciando una sesión nueva. Tarda un momento."
+clearing = "🧹 Limpiando — consolidando y archivando el handoff, luego empezando de cero. Tarda un momento."
+ready_now = "✅ El espacio de trabajo ya está listo. Envía tu mensaje de nuevo."
+folder_missing = "⚠️ No se puede escribir el handoff: `{detail}` no existe. No se envió nada al agente."
+not_writable = "⚠️ No se puede escribir el handoff: `{detail}` no admite escritura. No se envió nada al agente."
+exclude_unwritable = "⚠️ El handoff no puede protegerse de git: `{detail}`. Corrígelo y toca Reintentar — no se envió nada."
+dir_uncreatable = "⚠️ No se puede crear el directorio de handoff: `{detail}`. No se envió nada al agente."
+btn_retry = "🔄 Reintentar"
+btn_compact = "🗜 Compactar"
+btn_clear = "🧹 Limpiar y nuevo"
+btn_handoff = "📋 Handoff"
+btn_archived = "📚 Archivados"
+none_yet = "Aún no hay handoff para esta conversación. Se escribe a medida que se trabaja."
+current = "**Handoff** — {size}, actualizado {when}."
+archived_header = "**Handoffs archivados** de esta conversación:"
+archived_none = "Aún no hay handoffs archivados para esta conversación."
+compacted = "🗜 Compactado. El handoff se consolidó y se llevó a una sesión nueva."
+cleared = "🧹 Limpiado. El handoff se archivó y se inició una sesión nueva."
+clear_confirm = "Esto termina la tarea actual: el handoff se archiva y la sesión empieza de cero. El archivo sigue disponible en Archivados."
+btn_clear_confirm = "🧹 Archivar y empezar de cero"
+archive_failed = "⚠️ No se pudo archivar el handoff, así que no se limpió nada. La sesión sigue igual."
+
+[turn]
+btn_stop = "⏹ Detener"
+stopped = "Detenido. Lo que esté en cola se ejecuta ahora."

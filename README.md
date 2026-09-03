@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="phoenix_patchbay/messenger/telegram/patchbay_images/logo_text.png" alt="Phoenix Patchbay" width="100%" />
+</p>
+
 <h1 align="center">Phoenix Patchbay</h1>
 
 <p align="center">

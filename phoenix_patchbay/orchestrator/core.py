@@ -225,6 +225,7 @@ class Orchestrator:
             self._memory_flusher.set_folder_resolver(
                 lambda key: self._bindings.resolve(key.storage_key)
             )
+        self._queued_check: Callable[[SessionKey], bool] | None = None
         self._hook_registry = MessageHookRegistry()
         self._hook_registry.register(MAINMEMORY_REMINDER)
         self._supervisor: AgentSupervisor | None = None  # Set by AgentSupervisor after creation
@@ -787,6 +788,25 @@ class Orchestrator:
         """Return fresh topic sessions for *chat_id*."""
         all_sessions = await self._sessions.list_active_for_chat(chat_id)
         return [s for s in all_sessions if s.topic_id is not None]
+
+    def set_queued_check(self, check: Callable[[SessionKey], bool]) -> None:
+        """Teach the orchestrator how to ask whether a message is waiting.
+
+        The queue belongs to the transport, and the orchestrator must not reach
+        into it. Transports that have no queue simply never call this, and the
+        default answer — nothing waiting — is the right one for them.
+        """
+        self._queued_check = check
+
+    def has_queued_work(self, key: SessionKey) -> bool:
+        """True when the user has already sent the next message for this topic."""
+        if self._queued_check is None:
+            return False
+        try:
+            return bool(self._queued_check(key))
+        except Exception:  # a broken check must not cost the user their turn
+            logger.exception("Queued-work check failed chat=%d", key.chat_id)
+            return False
 
     def is_chat_busy(self, chat_id: int, topic_id: int | None = None) -> bool:
         """Check if a chat has active CLI processes."""

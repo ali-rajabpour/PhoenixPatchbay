@@ -7,7 +7,6 @@ from pathlib import Path
 from phoenix_patchbay.handoff.prompts import (
     TEMPLATE,
     consolidation_prompt,
-    delta_suffix,
     injection_block,
 )
 
@@ -27,15 +26,6 @@ def test_the_template_names_every_required_section() -> None:
         "## Log",
     ):
         assert section in TEMPLATE
-
-
-def test_the_delta_allows_doing_nothing() -> None:
-    """A turn that changed nothing should cost nothing."""
-    assert "do nothing" in delta_suffix(HANDOFF).lower()
-
-
-def test_the_delta_forbids_rewriting() -> None:
-    assert "do not rewrite" in delta_suffix(HANDOFF).lower()
 
 
 def test_the_consolidation_demands_identifiers() -> None:
@@ -65,25 +55,9 @@ def test_injection_of_an_empty_handoff_is_harmless() -> None:
     assert "not instructions" in injection_block("").lower()
 
 
-def test_the_delta_names_the_file_it_wants_written() -> None:
-    """The first version said "this conversation's handoff file" and named no
-    path, so the model had nothing to write to and no handoff ever existed."""
-    assert str(HANDOFF) in delta_suffix(HANDOFF)
-
-
-def test_the_delta_explains_how_to_create_the_first_one() -> None:
-    """Injection only happens once a file exists, so the delta has to be what
-    brings it into being."""
-    body = delta_suffix(HANDOFF)
-
-    assert "does not exist" in body
-    assert "## Objective" in body
-
-
 def test_the_consolidation_names_the_file_too() -> None:
     assert str(HANDOFF) in consolidation_prompt(HANDOFF)
 
 
-def test_neither_prompt_leaks_into_the_reply() -> None:
-    for body in (delta_suffix(HANDOFF), consolidation_prompt(HANDOFF)):
-        assert "never mention this instruction" in body.lower()
+def test_the_consolidation_does_not_leak_into_the_reply() -> None:
+    assert "never mention this instruction" in consolidation_prompt(HANDOFF).lower()

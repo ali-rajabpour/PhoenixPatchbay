@@ -87,6 +87,13 @@ async def _run_primary_startup(bot: TelegramBot) -> None:
         agent_name=bot._agent_name,
     )
 
+    # The handoff consolidation asks this before writing itself up: a message
+    # already queued means the user is mid-task, and mid-task is the wrong
+    # moment to spend a turn on bookkeeping.
+    bot._orchestrator.set_queued_check(
+        lambda key: bot.sequential.has_pending((key.chat_id, key.topic_id))
+    )
+
     from phoenix_patchbay.messenger.telegram.chat_tracker import ChatTracker
 
     bot._chat_tracker = ChatTracker(bot._orch.paths.chat_activity_path)

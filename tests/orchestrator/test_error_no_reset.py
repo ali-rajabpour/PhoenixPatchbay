@@ -98,12 +98,26 @@ async def test_no_auto_retry_on_resume_failure(orch: Orchestrator) -> None:
     assert request.resume_session == "sess-keep"
 
 
+
+def _user_turn_requests(mock_execute: AsyncMock) -> list:
+    """The requests made on the user's behalf, without handoff bookkeeping.
+
+    A finished turn may write the handoff up on the same mock, so positional
+    indexing into call_args_list picks the wrong request.
+    """
+    return [
+        call[0][0]
+        for call in mock_execute.call_args_list
+        if call[0][0].process_label != "handoff_consolidation"
+    ]
+
+
 async def test_next_message_after_error_resumes_same_session(orch: Orchestrator) -> None:
     await _establish_session(orch, sid="sess-keep")
 
     error_resp = _mock_response(is_error=True, result="Resume failed", session_id="sess-keep")
     success_resp = _mock_response(result="Recovered", session_id="sess-keep")
-    mock_execute = AsyncMock(side_effect=[error_resp, success_resp])
+    mock_execute = AsyncMock(side_effect=[error_resp, success_resp, _mock_response()])
     object.__setattr__(orch._cli_service, "execute", mock_execute)
     object.__setattr__(orch._process_registry, "kill_by_chat_topic", AsyncMock(return_value=0))
 
@@ -112,7 +126,7 @@ async def test_next_message_after_error_resumes_same_session(orch: Orchestrator)
 
     assert "Session Error" in first.text
     assert second.text == "Recovered"
-    second_request = mock_execute.call_args_list[1][0][0]
+    second_request = _user_turn_requests(mock_execute)[1]
     assert second_request.resume_session == "sess-keep"
 
     session = await orch._sessions.get_active(SessionKey(chat_id=1))

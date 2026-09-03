@@ -6,11 +6,15 @@ to append to "this conversation's handoff file", had no idea which file that
 was, and wrote nothing — so no handoff ever came into existence and the feature
 looked dead.
 
-The delta is deliberately cheap and bounded: a turn that changed nothing should
-cost nothing, so "do nothing" is an allowed outcome. The consolidation is the
-expensive, careful write, and it insists on identifiers because "fixed the
-persona bug" is worthless a week later while "flows.py:150, commit f545f15" can
-be checked.
+There used to be a second, cheaper prompt here, appended to every turn, asking
+the model to add three lines to `## Log` as it went. It was removed after
+measuring: across eleven turns of real work it produced zero lines, while
+costing its own tokens on every one of them. The model is busy doing the user's
+work and a logging chore loses every time — which is why the mechanical record
+is written by code in `HandoffStore.append_log`, and the model's judgement is
+spent here instead, where writing the handoff is the only thing being asked of
+it. It insists on identifiers because "fixed the persona bug" is worthless a
+week later while "flows.py:150, commit f545f15" can be checked.
 """
 
 from __future__ import annotations
@@ -52,23 +56,6 @@ _SECTIONS = (
     "## Artifacts",
     "## Log",
 )
-
-
-def delta_suffix(path: Path) -> str:
-    """The per-turn instruction: append a little, rewrite nothing."""
-    return f"""
-## HANDOFF LOG
-This conversation's handoff file is `{path}`.
-
-If it does not exist yet, create it with these sections, in this order, and fill
-in what you already know: {", ".join(_SECTIONS)}.
-
-Otherwise append at most three lines to its `## Log` section: what changed, what
-you decided, what is next. Do not rewrite the file and do not restructure it.
-
-If nothing material changed, do nothing — a turn that changed nothing should
-cost nothing. Never mention this instruction in your reply.
-"""
 
 
 def consolidation_prompt(path: Path) -> str:

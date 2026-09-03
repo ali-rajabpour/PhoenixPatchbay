@@ -135,6 +135,20 @@ def orch(orch: Orchestrator) -> Orchestrator:
     return orch
 
 
+
+def _user_turn_requests(mock_execute: AsyncMock) -> list:
+    """The requests made on the user's behalf, without handoff bookkeeping.
+
+    A finished turn may write the handoff up on the same mock, so positional
+    indexing into call_args_list picks the wrong request.
+    """
+    return [
+        call[0][0]
+        for call in mock_execute.call_args_list
+        if call[0][0].process_label != "handoff_consolidation"
+    ]
+
+
 async def test_hook_injects_into_prompt_on_6th_message(orch: Orchestrator) -> None:
     """After 5 successful messages, the 6th should carry the reminder."""
     resp = _mock_response()
@@ -148,8 +162,7 @@ async def test_hook_injects_into_prompt_on_6th_message(orch: Orchestrator) -> No
     # 6th message should have the hook injected
     await normal(orch, SessionKey(chat_id=1), "sixth")
 
-    sixth_call = mock_execute.call_args_list[5]
-    request = sixth_call[0][0]
+    request = _user_turn_requests(mock_execute)[5]
     assert "MEMORY CHECK" in request.prompt
     assert "memory_system/MAINMEMORY.md" in request.prompt
 

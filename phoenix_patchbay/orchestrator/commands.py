@@ -9,12 +9,9 @@ from typing import TYPE_CHECKING
 
 from phoenix_patchbay.cli.auth import check_all_auth
 from phoenix_patchbay.cli.claude_accounts import active_claude_account_dir
-from phoenix_patchbay.cli.types import AgentRequest
-from phoenix_patchbay.errors import CLIError
-from phoenix_patchbay.handoff.paths import handoff_file
-from phoenix_patchbay.handoff.prompts import consolidation_prompt
 from phoenix_patchbay.i18n import t
 from phoenix_patchbay.infra.version import check_pypi, get_current_version
+from phoenix_patchbay.orchestrator.flows import consolidate_handoff
 from phoenix_patchbay.orchestrator.registry import OrchestratorResult
 from phoenix_patchbay.orchestrator.selectors.account_selector import (
     account_selector_start,
@@ -45,31 +42,6 @@ logger = logging.getLogger(__name__)
 # -- Command wrappers (registered by Orchestrator._register_commands) --
 
 
-async def _consolidate_handoff(orch: Orchestrator, key: SessionKey) -> None:
-    """Run one silent turn asking the model to write the handoff up properly.
-
-    Best effort by design: a consolidation that fails must not block the user
-    from compacting or clearing, and the previous handoff stays on disk either
-    way — the store refuses to replace a good file with an empty one.
-    """
-    session = await orch._sessions.get_active(key)
-    if session is None or not session.session_id:
-        return
-    folder = orch.bindings.resolve(key.storage_key)
-    request = AgentRequest(
-        prompt=consolidation_prompt(handoff_file(key, folder, orch.paths)),
-        chat_id=key.chat_id,
-        topic_id=key.topic_id,
-        transport=key.transport,
-        resume_session=session.session_id,
-        process_label="handoff_consolidation",
-    )
-    try:
-        await orch._cli_service.execute(request)
-    except (CLIError, RuntimeError, OSError) as exc:
-        logger.warning("Handoff consolidation failed chat=%d: %s", key.chat_id, exc)
-
-
 async def cmd_compact(orch: Orchestrator, key: SessionKey, _text: str) -> OrchestratorResult:
     """Handle /compact: same work, empty context window.
 
@@ -86,7 +58,7 @@ async def cmd_compact(orch: Orchestrator, key: SessionKey, _text: str) -> Orches
         return OrchestratorResult(text=t("handoff.nothing_to_compact"))
 
     folder = orch.bindings.resolve(key.storage_key)
-    await _consolidate_handoff(orch, key)
+    await consolidate_handoff(orch, key)
 
     if not orch.handoffs.has_content(key, folder):
         # Compacting without a handoff is just losing the conversation. Refuse,
@@ -109,7 +81,7 @@ async def cmd_clear(orch: Orchestrator, key: SessionKey, _text: str) -> Orchestr
     """
     logger.info("Clear requested")
     folder = orch.bindings.resolve(key.storage_key)
-    await _consolidate_handoff(orch, key)
+    await consolidate_handoff(orch, key)
 
     had_handoff = orch.handoffs.has_content(key, folder)
     archived = orch.handoffs.archive(key, folder)

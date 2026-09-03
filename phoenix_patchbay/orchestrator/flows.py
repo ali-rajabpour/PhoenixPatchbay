@@ -16,8 +16,9 @@ from phoenix_patchbay.cli.timeout_controller import TimeoutConfig as TCConfig
 from phoenix_patchbay.cli.timeout_controller import TimeoutController
 from phoenix_patchbay.cli.types import AgentRequest, AgentResponse
 from phoenix_patchbay.config import NULLISH_TEXT_VALUES, resolve_timeout
+from phoenix_patchbay.errors import CLIError
 from phoenix_patchbay.handoff.paths import handoff_file
-from phoenix_patchbay.handoff.prompts import delta_suffix, injection_block
+from phoenix_patchbay.handoff.prompts import consolidation_prompt, injection_block
 from phoenix_patchbay.i18n import t
 from phoenix_patchbay.infra.inflight import InflightTurn
 from phoenix_patchbay.log_context import set_log_context
@@ -171,15 +172,8 @@ async def _prepare_normal(
     # line does: a claim arriving as user text is correctly distrusted.
     folder = orch.bindings.resolve(key.storage_key)
 
-    # The delta belongs in the system channel, not appended to the user's
-    # message. An instruction arriving as user text is discounted — the model
-    # read this one and wrote nothing eleven tool calls in a row — while the
-    # appended system prompt is where the persona line already proved
-    # authoritative.
     orch.handoffs.ensure_exists(key, folder)
     _log_turn(orch, key, text)
-    delta = delta_suffix(handoff_file(key, folder, orch.paths))
-    append_prompt = f"{append_prompt}\n\n{delta}" if append_prompt else delta
 
     if is_new or orch.reinject.take(key):
         handoff = orch.handoffs.read(key, folder)
@@ -223,6 +217,64 @@ async def _prepare_normal(
         timeout_controller=_make_timeout_controller(orch, "normal"),
     )
     return request, session
+
+
+#: Log entries to accumulate before a consolidation is worth its own model turn.
+#: One per user message, so this is a rough stand-in for "a task's worth of
+#: work" — the day this was measured ran eleven turns across about four tasks.
+#: A guess, deliberately a constant and not a setting: tune it against measured
+#: cost before giving anyone a knob to get wrong.
+_CONSOLIDATE_AFTER_LOG_LINES = 3
+
+
+async def consolidate_handoff(orch: Orchestrator, key: SessionKey) -> bool:
+    """Run one silent turn asking the model to write the handoff up properly.
+
+    Best effort by design: a consolidation that fails must not block the user,
+    and the previous handoff stays on disk either way — the store refuses to
+    replace a good file with an empty one.
+    """
+    session = await orch._sessions.get_active(key)
+    if session is None or not session.session_id:
+        return False
+    folder = orch.bindings.resolve(key.storage_key)
+    request = AgentRequest(
+        prompt=consolidation_prompt(handoff_file(key, folder, orch.paths)),
+        chat_id=key.chat_id,
+        topic_id=key.topic_id,
+        transport=key.transport,
+        resume_session=session.session_id,
+        process_label="handoff_consolidation",
+    )
+    try:
+        await orch._cli_service.execute(request)
+    except (CLIError, RuntimeError, OSError) as exc:
+        logger.warning("Handoff consolidation failed chat=%d: %s", key.chat_id, exc)
+        return False
+    return True
+
+
+async def _maybe_consolidate(orch: Orchestrator, key: SessionKey) -> None:
+    """Write up the handoff when a task looks finished.
+
+    Two conditions, both cheap to check. Enough has happened to be worth
+    writing up, and the user is not waiting: a queued message means they are
+    mid-flow, and the turn boundary we are standing on is inside a task rather
+    than at the end of one.
+
+    Runs inside the turn's lock on purpose. Consolidation resumes the CLI
+    session, and a session has one writer — backgrounding it would let the
+    user's next message resume the same session concurrently. The user's reply
+    has already been streamed by this point, so what waits is their next turn,
+    not this answer.
+    """
+    folder = orch.bindings.resolve(key.storage_key)
+    if orch.handoffs.pending_log_lines(key, folder) < _CONSOLIDATE_AFTER_LOG_LINES:
+        return
+    if orch.has_queued_work(key):
+        return
+    logger.info("Consolidating handoff chat=%d topic=%s", key.chat_id, key.topic_id)
+    await consolidate_handoff(orch, key)
 
 
 def _log_turn(orch: Orchestrator, key: SessionKey, text: str) -> None:
@@ -599,6 +651,7 @@ async def _finalize_turn(  # noqa: PLR0913
     await _update_session(orch, session, response)
     if schedule_memory_flush:
         _schedule_memory_flush(orch, key, session)
+    await _maybe_consolidate(orch, key)
     logger.info("%s flow completed", flow_label)
     req_model, _prov = _request_target(orch, request)
     result = _finish_normal(

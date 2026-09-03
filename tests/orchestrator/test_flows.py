@@ -84,10 +84,10 @@ async def test_normal_resume_session_no_append(orch: Orchestrator) -> None:
 
     second_call = mock_execute.call_args_list[1]
     request = second_call[0][0]
-    # Always non-empty now: the handoff instruction lives here. The point
-    # of this assertion is that MAINMEMORY is not re-injected.
-    assert "HANDOFF LOG" in (request.append_system_prompt or "")
-    assert "Main Memory" not in (request.append_system_prompt or "")
+    # A resumed turn carries no appended prompt at all. There used to be a
+    # per-turn handoff instruction here; it was removed after it was measured
+    # producing nothing, and nothing has taken its place.
+    assert not request.append_system_prompt
     assert request.resume_session is not None
 
 
@@ -127,13 +127,30 @@ async def test_normal_timeout_preserves_session(orch: Orchestrator) -> None:
     assert mock_execute.call_count == 1
 
 
+
+def _user_turns(mock_execute: AsyncMock) -> int:
+    """CLI calls made for the user, ignoring handoff bookkeeping.
+
+    A finished turn may write the handoff up, which is a second call on the
+    same mock. Counting every call would make these tests fail for a reason
+    that has nothing to do with what they are about.
+    """
+    return sum(
+        1
+        for call in mock_execute.call_args_list
+        if call[0][0].process_label != "handoff_consolidation"
+    )
+
+
 async def test_normal_next_message_can_succeed_after_error(orch: Orchestrator) -> None:
     """No auto-retry, but a follow-up user message can succeed with same session."""
     await _establish_session(orch)
 
     error_resp = _mock_response(is_error=True, result="Temporary error")
     success_resp = _mock_response(result="All good")
-    mock_execute = AsyncMock(side_effect=[error_resp, success_resp])
+    # A third response: enough turns have accumulated by now that the finished
+    # turn also writes the handoff up, which is its own CLI call.
+    mock_execute = AsyncMock(side_effect=[error_resp, success_resp, _mock_response()])
     object.__setattr__(orch._cli_service, "execute", mock_execute)
     object.__setattr__(orch._process_registry, "kill_by_chat_topic", AsyncMock(return_value=0))
 
@@ -141,7 +158,7 @@ async def test_normal_next_message_can_succeed_after_error(orch: Orchestrator) -
     second = await normal(orch, SessionKey(chat_id=1), "Hello again")
     assert "Session Error" in first.text
     assert second.text == "All good"
-    assert mock_execute.call_count == 2
+    assert _user_turns(mock_execute) == 2
 
 
 async def test_normal_model_override(orch: Orchestrator) -> None:
@@ -927,11 +944,8 @@ async def test_normal_no_files_configured_leaves_resume_append_none(orch: Orches
     object.__setattr__(orch._cli_service, "execute", mock_execute)
     await normal(orch, SessionKey(chat_id=1), "Hello")
     await normal(orch, SessionKey(chat_id=1), "Again")
-    request = mock_execute.call_args[0][0]
-    # Always non-empty now: the handoff instruction lives here. The point
-    # of this assertion is that MAINMEMORY is not re-injected.
-    assert "HANDOFF LOG" in (request.append_system_prompt or "")
-    assert "Main Memory" not in (request.append_system_prompt or "")
+    request = mock_execute.call_args_list[1][0][0]
+    assert not request.append_system_prompt
 
 
 async def test_heartbeat_excludes_appended_files(orch: Orchestrator) -> None:

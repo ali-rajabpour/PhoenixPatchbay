@@ -153,6 +153,17 @@ class HandoffStore:
         updated = f"{head}{_LOG_HEADING}{tail.rstrip()}\n{line.rstrip()}\n"
         return self.write(key, folder, updated)
 
+    def pending_log_lines(self, key: SessionKey, folder: Path | None) -> int:
+        """How many log entries are waiting to be folded into the sections above.
+
+        Consolidation empties ``## Log``, so the length of that section is the
+        amount of work recorded but not yet written up — the natural watermark
+        for deciding when a consolidation has become worth its cost.
+        """
+        body = self.read(key, folder)
+        _, _, tail = body.partition(_LOG_HEADING)
+        return sum(1 for line in tail.splitlines() if line.strip().startswith("-"))
+
     def archive(self, key: SessionKey, folder: Path | None) -> Path | None:
         """Move the active handoff out of the folder. ``None`` when absent."""
         source = handoff_file(key, folder, self._paths)

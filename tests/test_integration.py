@@ -354,6 +354,20 @@ class TestDirectiveParsing:
 # ---------------------------------------------------------------------------
 
 
+
+def _user_turn_requests(mock_execute: AsyncMock) -> list:
+    """The requests made on the user's behalf, without handoff bookkeeping."""
+    return [
+        call[0][0]
+        for call in mock_execute.call_args_list
+        if call[0][0].process_label != "handoff_consolidation"
+    ]
+
+
+def _user_turns(mock_execute: AsyncMock) -> int:
+    return len(_user_turn_requests(mock_execute))
+
+
 class TestHookApplication:
     async def test_mainmemory_hook_fires_on_6th_message(
         self, orch_with_mock_cli: tuple[Orchestrator, AsyncMock]
@@ -364,9 +378,10 @@ class TestHookApplication:
             mock_execute.return_value = _make_agent_response(result=f"Reply {i}")
             await orch.handle_message(KEY, f"Message {i}")
 
-        sixth_call = mock_execute.call_args_list[5]
-        prompt = sixth_call[0][0].prompt
-        assert "MEMORY CHECK" in prompt
+        # Positional indexing would pick up a handoff write-up instead: those
+        # are interleaved with the user's turns on the same mock.
+        sixth_turn = _user_turn_requests(mock_execute)[5]
+        assert "MEMORY CHECK" in sixth_turn.prompt
 
     async def test_hook_does_not_fire_before_threshold(
         self, orch_with_mock_cli: tuple[Orchestrator, AsyncMock]
@@ -416,7 +431,14 @@ class TestErrorRecovery:
         error_resp = _make_agent_response(result="CLI failed", is_error=True)
         success_resp = _make_agent_response(result="Recovered!")
 
-        mock_execute.side_effect = [first_resp, error_resp, success_resp]
+        # The trailing response covers the handoff write-up that a finished
+        # turn triggers once enough has accumulated to be worth one.
+        mock_execute.side_effect = [
+            first_resp,
+            error_resp,
+            success_resp,
+            _make_agent_response(result="written up"),
+        ]
 
         await orch.handle_message(KEY, "Setup message")
         first_result = await orch.handle_message(KEY, "Flaky request")
@@ -424,7 +446,7 @@ class TestErrorRecovery:
 
         assert "Session Error" in first_result.text
         assert second_result.text == "Recovered!"
-        assert mock_execute.await_count == 3
+        assert _user_turns(mock_execute) == 3
 
     async def test_error_preserves_existing_session(
         self, orch_with_mock_cli: tuple[Orchestrator, AsyncMock]
@@ -604,9 +626,7 @@ class TestFullRoundTrip:
         await orch.handle_message(KEY, "First message")
 
         request = mock_execute.call_args[0][0]
-        # The delta shares this channel now, so mainmemory is one part of it.
         assert memory_text in request.append_system_prompt
-        assert "HANDOFF LOG" in request.append_system_prompt
 
     async def test_resumed_session_skips_mainmemory_injection(
         self, orch_with_mock_cli: tuple[Orchestrator, AsyncMock]
@@ -623,7 +643,7 @@ class TestFullRoundTrip:
         await orch.handle_message(KEY, "Second")
 
         request = mock_execute.call_args[0][0]
-        # Always non-empty now: the handoff instruction lives here. The point
-        # of this assertion is that MAINMEMORY is not re-injected.
-        assert "HANDOFF LOG" in (request.append_system_prompt or "")
-        assert "Main Memory" not in (request.append_system_prompt or "")
+        # A resumed turn appends nothing: mainmemory goes in once, on the first
+        # turn, and the per-turn handoff instruction that used to live here is
+        # gone. Both halves matter, so assert the channel is empty.
+        assert not request.append_system_prompt

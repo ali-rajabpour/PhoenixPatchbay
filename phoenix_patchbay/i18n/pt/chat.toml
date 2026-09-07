@@ -623,6 +623,7 @@ item_clear = "🧹 Limpar e novo"
 item_handoff = "📋 Handoff"
 item_status = "📊 Estado"
 item_consult = "🧭 Consult"
+item_settings = "⚙️ Definições"
 item_help = "❓ Ajuda"
 
 [handoff]
@@ -653,3 +654,24 @@ archive_failed = "⚠️ Não foi possível arquivar o handoff, por isso nada fo
 [turn]
 btn_stop = "⏹ Parar"
 stopped = "Parado. O que estiver na fila é executado a seguir."
+
+[settings]
+header = "**⚙️ Definições**"
+state_set = "✅ definida"
+state_unset = "⚠️ por definir"
+item_gemini = "🔑 Chave da API Gemini"
+consequence_gemini = "Os resumos de handoff estão a ser cobrados à tua subscrição Claude — cerca de 0,17 $ cada."
+about_gemini = "Usada apenas para escrever handoffs, para que esse trabalho não seja cobrado à subscrição que programa. Uma chave gratuita do [AI Studio](https://aistudio.google.com/apikey) chega."
+ask_gemini = "Envia a chave como mensagem. Começa por `AIza`."
+ask_privacy = "_A tua mensagem é apagada assim que é lida, e a chave nunca é mostrada por inteiro. Mesmo assim passa pelo Telegram._"
+btn_set = "🔑 Definir chave"
+btn_replace = "🔑 Substituir"
+btn_clear = "🗑 Remover"
+btn_cancel = "✕ Cancelar"
+btn_list = "◀︎ Definições"
+saved = "✅ Guardada. Aplica-se a partir da tua próxima vez — sem reiniciar."
+cleared = "🗑 Removida. Os handoffs voltam à tua subscrição de programação."
+err_empty = "⚠️ Estava vazio."
+err_spaces = "⚠️ Tem espaços — parece que foi colado mais do que a chave."
+err_shape = "⚠️ Uma chave da API Google começa por `AIza`. Esta não."
+err_short = "⚠️ Curta demais para ser uma chave completa."

@@ -260,17 +260,17 @@ class TestDispatchRouting:
 
 
 class TestDispatchWake:
-    async def test_wake_calls_handler_for_each_user(self, tmp_path: Path) -> None:
+    async def test_wake_calls_handler_for_the_owner(self, tmp_path: Path) -> None:
         paths = _make_paths(tmp_path)
         mgr = _make_manager(paths)
         mgr.add_hook(_make_hook("wake-hook", mode="wake"))
-        observer = _make_observer(paths, mgr, allowed_user_ids=[100, 200])
+        observer = _make_observer(paths, mgr, allowed_user_ids=[100])
 
         handler = AsyncMock(return_value="response")
         observer.set_wake_handler(handler)
 
         result = await observer._dispatch("wake-hook", {"msg": "hi"})
-        assert handler.call_count == 2
+        assert handler.call_count == 1
         assert result.status == "success"
 
     async def test_wake_no_response_is_error(self, tmp_path: Path) -> None:

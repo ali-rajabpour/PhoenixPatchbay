@@ -486,11 +486,41 @@ class AgentConfig(BaseModel):
     transport: str = "telegram"  # "telegram" | "matrix" | "slack"
     transports: list[str] = Field(default_factory=list)
     telegram_token: str = ""
+    #: The one person this bot answers. A list because that is the shape the
+    #: config has always had and the env var still uses, but exactly one entry
+    #: is allowed: see the validator below.
     allowed_user_ids: list[int] = Field(default_factory=list)
     allowed_group_ids: list[int] = Field(default_factory=list)
     allowed_channel_ids: list[int] = Field(default_factory=list)
     matrix: MatrixConfig = Field(default_factory=MatrixConfig)
     slack: SlackConfig = Field(default_factory=SlackConfig)
+
+    @field_validator("allowed_user_ids", mode="after")
+    @classmethod
+    def _one_owner(cls, value: list[int]) -> list[int]:
+        """One bot, one person.
+
+        A shared bot is a shared session: two people in one topic interleave
+        turns in the same context, and each sees what the other is doing in a
+        conversation neither can follow. Isolation between people is what
+        running a second bot is for.
+
+        Refusing to start beats quietly using the first id. An allowlist that
+        silently narrows is the kind of security change nobody notices until
+        the person who was dropped asks why the bot ignores them.
+        """
+        if len(value) > 1:
+            msg = (
+                f"allowed_user_ids has {len(value)} entries; a bot answers exactly one "
+                "person. Keep the owner's id and run a second bot for anyone else."
+            )
+            raise ValueError(msg)
+        return value
+
+    @property
+    def owner_id(self) -> int | None:
+        """The single allowed user, or None before setup has run."""
+        return self.allowed_user_ids[0] if self.allowed_user_ids else None
 
     @field_validator("gemini_api_key", mode="before")
     @classmethod

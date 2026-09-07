@@ -67,6 +67,7 @@ MENU_ITEMS: tuple[MenuItem, ...] = (
     MenuItem("handoff", "/handoff"),
     MenuItem("status", "/status"),
     MenuItem("consult", "/consult"),
+    MenuItem("settings", "/settings"),
     MenuItem("help", "/help"),
 )
 

@@ -58,7 +58,7 @@ class TestSlicing:
 
     def test_a_half_written_line_is_skipped(self, tmp_path: Path) -> None:
         t = tmp_path / "s.jsonl"
-        t.write_text(json.dumps(_msg("user", "complete")) + "\n{\"type\": \"user\", ", encoding="utf-8")
+        t.write_text(json.dumps(_msg("user", "complete")) + '\n{"type": "user", ', encoding="utf-8")
         assert "complete" in read_since(t, 0).text  # and no exception
 
 

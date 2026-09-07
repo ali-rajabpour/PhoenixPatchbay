@@ -93,7 +93,8 @@ def ensure_config(config_path: Path) -> bool:
     if config is None:
         return False
 
-    if not config["allowed_user_ids"]:
+    owners = config["allowed_user_ids"]
+    if not owners:
         # A bot with an empty allowlist answers anyone who finds it. Refuse to
         # write that config rather than start something the operator did not ask
         # for; the wizard would have insisted on the same answer.
@@ -101,6 +102,16 @@ def ensure_config(config_path: Path) -> bool:
             "%s is set but %s is empty — refusing to start a bot anyone can talk to",
             TOKEN_VAR,
             USERS_VAR,
+        )
+        raise SystemExit(1)
+    if len(owners) > 1:
+        # One bot, one person: a shared bot is a shared session, and two people
+        # in one topic interleave turns in a context neither can follow.
+        logger.error(
+            "%s lists %d ids — a bot answers exactly one person. "
+            "Keep the owner's id and run a second bot for anyone else",
+            USERS_VAR,
+            len(owners),
         )
         raise SystemExit(1)
 

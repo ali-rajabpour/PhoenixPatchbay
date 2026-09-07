@@ -622,6 +622,7 @@ item_clear = "🧹 Bersihkan & baru"
 item_handoff = "📋 Handoff"
 item_status = "📊 Status"
 item_consult = "🧭 Consult"
+item_settings = "⚙️ Pengaturan"
 item_help = "❓ Bantuan"
 
 [handoff]
@@ -652,3 +653,24 @@ archive_failed = "⚠️ Handoff tidak bisa diarsipkan, jadi tidak ada yang dibe
 [turn]
 btn_stop = "⏹ Hentikan"
 stopped = "Dihentikan. Antrean berikutnya akan dijalankan."
+
+[settings]
+header = "**⚙️ Pengaturan**"
+state_set = "✅ tersetel"
+state_unset = "⚠️ belum disetel"
+item_gemini = "🔑 Kunci API Gemini"
+consequence_gemini = "Penulisan handoff memakai langganan Claude kamu — sekitar $0,17 sekali jalan."
+about_gemini = "Dipakai hanya untuk menulis handoff, supaya pekerjaan itu tidak dibebankan ke langganan yang menulis kodemu. Kunci gratis dari [AI Studio](https://aistudio.google.com/apikey) sudah cukup."
+ask_gemini = "Kirim kuncinya sebagai pesan. Diawali `AIza`."
+ask_privacy = "_Pesanmu dihapus begitu dibaca, dan kuncinya tidak pernah ditampilkan utuh. Tetap saja ia melewati Telegram._"
+btn_set = "🔑 Setel kunci"
+btn_replace = "🔑 Ganti"
+btn_clear = "🗑 Hapus"
+btn_cancel = "✕ Batal"
+btn_list = "◀︎ Pengaturan"
+saved = "✅ Tersimpan. Berlaku mulai giliran berikutnya — tanpa restart."
+cleared = "🗑 Dihapus. Penulisan handoff kembali ke langganan codingmu."
+err_empty = "⚠️ Kosong."
+err_spaces = "⚠️ Ada spasi — sepertinya yang ditempel bukan cuma kuncinya."
+err_shape = "⚠️ Kunci API Google diawali `AIza`. Yang ini tidak."
+err_short = "⚠️ Terlalu pendek untuk kunci lengkap."

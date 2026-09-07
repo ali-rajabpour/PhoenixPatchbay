@@ -28,6 +28,7 @@ from phoenix_patchbay.orchestrator.selectors.model_selector import (
 from phoenix_patchbay.orchestrator.selectors.models import Button, ButtonGrid
 from phoenix_patchbay.orchestrator.selectors.persona_selector import persona_selector
 from phoenix_patchbay.orchestrator.selectors.session_selector import session_selector_start
+from phoenix_patchbay.orchestrator.selectors.settings_selector import settings_root
 from phoenix_patchbay.orchestrator.selectors.skills_selector import skill_detail, skills_root
 from phoenix_patchbay.text.response_format import SEP, fmt
 from phoenix_patchbay.workspace.loader import read_mainmemory
@@ -167,6 +168,13 @@ async def cmd_consult(orch: Orchestrator, _key: SessionKey, _text: str) -> Orche
     """Handle /consult: how often the Consult topic is wiped."""
     logger.info("Consult schedule requested")
     resp = consult_selector(orch)
+    return OrchestratorResult(text=resp.text, buttons=resp.buttons)
+
+
+async def cmd_settings(orch: Orchestrator, _key: SessionKey, _text: str) -> OrchestratorResult:
+    """Handle /settings: values that can be changed without touching the host."""
+    logger.info("Settings requested")
+    resp = settings_root(orch.config)
     return OrchestratorResult(text=resp.text, buttons=resp.buttons)
 
 

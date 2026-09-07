@@ -27,6 +27,7 @@ def get_bot_commands() -> list[tuple[str, str]]:
         ("persona", t_cmd("bot.persona")),
         ("folder", t_cmd("bot.folder")),
         ("consult", t_cmd("bot.consult")),
+        ("settings", t_cmd("bot.settings")),
         ("skills", t_cmd("bot.skills")),
         ("status", t_cmd("bot.status")),
         ("memory", t_cmd("bot.memory")),
@@ -66,6 +67,7 @@ MENU_DUPLICATES = frozenset(
         "handoff",
         "status",
         "consult",
+        "settings",
     }
 )
 

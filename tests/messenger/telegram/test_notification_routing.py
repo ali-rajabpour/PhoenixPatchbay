@@ -31,7 +31,7 @@ def _make_bot(
 
     cfg = AgentConfig(
         telegram_token="test-token",
-        allowed_user_ids=allowed_user_ids or [111, 222],
+        allowed_user_ids=allowed_user_ids or [111],
         notifications=NotificationsConfig(
             startup_targets=startup_targets or [],
             upgrade_targets=upgrade_targets or [],

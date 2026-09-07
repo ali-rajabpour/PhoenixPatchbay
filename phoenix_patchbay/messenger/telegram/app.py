@@ -189,7 +189,7 @@ def _build_help_text() -> str:
         f"{t('help.cat_multiagent')}\n{_help_line('agent_commands')}",
         f"{t('help.cat_browse')}\n{_help_line('where')}\n{_help_line('leave')}\n"
         f"{_help_line('files')}\n{_help_line('menu')}\n{_help_line('skills')}\n"
-        f"{_help_line('info')}\n{_help_line('help')}",
+        f"{_help_line('settings')}\n{_help_line('info')}\n{_help_line('help')}",
         f"{t('help.cat_maintenance')}\n{_help_line('diagnose')}\n{_help_line('upgrade')}\n{_help_line('restart')}",
         SEP,
         t("help.footer"),
@@ -313,6 +313,10 @@ class TelegramBot:
         self._lock_pool = lock_pool or LockPool()
         self._upload_store: UploadStore | None = None
         self._edit_store = EditStore()
+        #: conversation -> the setting it is currently being asked for.
+        #: In memory only: a pending question that survived a restart
+        #: would swallow the first message of the next conversation.
+        self._pending_setting: dict[str, tuple[str, int]] = {}
         self._clipboard = ClipboardStore()
         self._bus = bus or MessageBus(lock_pool=self._lock_pool)
 
@@ -1487,10 +1491,16 @@ class TelegramBot:
             else:
                 await self._handle_non_streaming(msg, key, data, thread_id=thread_id)
 
-    async def _route_special_callback(  # noqa: PLR0911
+    async def _route_special_callback(  # noqa: PLR0911, C901
         self, key: SessionKey, message_id: int, data: str, *, thread_id: int | None = None
     ) -> bool:
-        """Handle known callback namespaces. Returns True when handled."""
+        """Handle known callback namespaces. Returns True when handled.
+
+        One branch per namespace, and it grows by one each time a screen is
+        added. Splitting it to satisfy a complexity count would put half the
+        namespaces somewhere else for no reason a reader could infer, so the
+        count is waived instead.
+        """
         if await self._route_prefix_callback(key, message_id, data, thread_id=thread_id):
             return True
 
@@ -1500,6 +1510,9 @@ class TelegramBot:
 
         if is_consult_selector_callback(data):
             await self._handle_consult_selector(key, message_id, data)
+            return True
+
+        if await self._route_settings_callback(key, message_id, data):
             return True
 
         from phoenix_patchbay.orchestrator.selectors.folder_selector import (
@@ -1827,6 +1840,12 @@ class TelegramBot:
         thread_id = get_thread_id(message)
         logger.debug("Message text=%s", text[:80])
 
+        # A settings screen asked for a value. Consume it first: this one may
+        # be a secret, and the sooner it is taken out of the message stream the
+        # smaller the window in which it is sitting in the topic.
+        if await self._collect_setting_value(message, key):
+            return
+
         # A pending rename or new folder is waiting for its name. Consume the
         # message rather than sending it to the agent, which would otherwise
         # act on "docs" as though it were an instruction.
@@ -2152,6 +2171,122 @@ class TelegramBot:
                 reply_markup=keyboard,
                 parse_mode=ParseMode.HTML,
             )
+        return True
+
+    async def _route_settings_callback(
+        self, key: SessionKey, message_id: int, data: str
+    ) -> bool:
+        """True when *data* belonged to the settings screens."""
+        from phoenix_patchbay.orchestrator.selectors.settings_selector import (
+            is_settings_callback,
+        )
+
+        if not is_settings_callback(data):
+            return False
+        await self._handle_settings(key, message_id, data)
+        return True
+
+    async def _handle_settings(self, key: SessionKey, message_id: int, data: str) -> None:
+        """Drive the settings screens. Every branch edits the same message."""
+        from phoenix_patchbay.orchestrator.selectors.models import SelectorResponse
+        from phoenix_patchbay.orchestrator.selectors.settings_selector import (
+            SET_ROOT,
+            ask_for_value,
+            parse_callback,
+            setting_detail,
+            setting_for,
+            settings_root,
+        )
+
+        async def show(resp: SelectorResponse) -> None:
+            await edit_selector_response(self._bot, key.chat_id, message_id, resp)
+
+        if data == SET_ROOT:
+            self._pending_setting.pop(key.storage_key, None)
+            await show(settings_root(self._config))
+            return
+
+        parsed = parse_callback(data)
+        setting = setting_for(parsed[1]) if parsed is not None else None
+        if parsed is None or setting is None:
+            await show(settings_root(self._config))
+            return
+        action = parsed[0]
+
+        if action == "open":
+            # Reached by Cancel as well as by tapping the row, so any half
+            # finished question is dropped here rather than left armed.
+            self._pending_setting.pop(key.storage_key, None)
+            await show(setting_detail(self._config, setting))
+            return
+
+        if action == "edit":
+            self._pending_setting[key.storage_key] = (setting.key, message_id)
+            await show(ask_for_value(setting))
+            return
+
+        if action == "clear":
+            await self._store_setting(setting.field, "")
+            await show(setting_detail(self._config, setting, notice=t("settings.cleared")))
+
+    async def _store_setting(self, field: str, value: str) -> None:
+        """Persist one config field and make it live without a restart.
+
+        Written to disk *and* to the objects already holding it: the CLI service
+        reads the key when it builds a subprocess environment, so a value only
+        on disk would not take effect until the next start.
+        """
+        from phoenix_patchbay.config import update_config_file_async
+
+        setattr(self._config, field, value)
+        with contextlib.suppress(AttributeError):
+            setattr(self._orch._cli_service._config, field, value)
+        await update_config_file_async(self._orch.paths.config_path, **{field: value})
+
+    async def _collect_setting_value(self, message: Message, key: SessionKey) -> bool:
+        """Take a typed setting value. True when the message was consumed."""
+        from phoenix_patchbay.orchestrator.selectors.settings_selector import (
+            ask_for_value,
+            setting_detail,
+            setting_for,
+        )
+
+        pending = self._pending_setting.get(key.storage_key)
+        if pending is None or not message.text:
+            return False
+        setting = setting_for(pending[0])
+        if setting is None:
+            self._pending_setting.pop(key.storage_key, None)
+            return False
+
+        value = message.text.strip()
+
+        # Delete first, before any validation branch can return early. This may
+        # be a secret sitting in the topic, and the one thing that must happen
+        # on every path is that it stops being a message. Best effort: in groups
+        # deletion needs can_delete_messages, which the bot does not control.
+        with contextlib.suppress(TelegramAPIError):
+            await self._bot.delete_message(
+                chat_id=message.chat.id, message_id=message.message_id
+            )
+
+        refusal = setting.validate(value)
+        if refusal:
+            # The question stays open so a mistyped key can be sent again
+            # without walking back through the menu.
+            await edit_selector_response(
+                self._bot, key.chat_id, pending[1], ask_for_value(setting, refusal)
+            )
+            return True
+
+        self._pending_setting.pop(key.storage_key, None)
+        await self._store_setting(setting.field, value)
+        await edit_selector_response(
+            self._bot,
+            key.chat_id,
+            pending[1],
+            setting_detail(self._config, setting, notice=t("settings.saved")),
+        )
         return True
 
     async def _collect_edit_name(self, message: Message, key: SessionKey) -> bool:

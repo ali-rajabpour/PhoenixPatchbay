@@ -623,6 +623,7 @@ item_clear = "🧹 Leeren & neu"
 item_handoff = "📋 Handoff"
 item_status = "📊 Status"
 item_consult = "🧭 Consult"
+item_settings = "⚙️ Einstellungen"
 item_help = "❓ Hilfe"
 
 [handoff]
@@ -653,3 +654,24 @@ archive_failed = "⚠️ Der Handoff konnte nicht archiviert werden, daher wurde
 [turn]
 btn_stop = "⏹ Stopp"
 stopped = "Gestoppt. Wartende Nachrichten laufen als Nächstes."
+
+[settings]
+header = "**⚙️ Einstellungen**"
+state_set = "✅ gesetzt"
+state_unset = "⚠️ nicht gesetzt"
+item_gemini = "🔑 Gemini-API-Key"
+consequence_gemini = "Handoff-Zusammenfassungen laufen über dein Claude-Abo — etwa 0,17 $ pro Stück."
+about_gemini = "Wird nur zum Schreiben von Handoffs benutzt, damit diese Arbeit nicht dem Abo belastet wird, das deinen Code schreibt. Ein kostenloser Key von [AI Studio](https://aistudio.google.com/apikey) genügt."
+ask_gemini = "Sende den Key als Nachricht. Er beginnt mit `AIza`."
+ask_privacy = "_Deine Nachricht wird gelöscht, sobald sie gelesen ist, und der Key wird nie vollständig angezeigt. Er läuft trotzdem über Telegram._"
+btn_set = "🔑 Key setzen"
+btn_replace = "🔑 Ersetzen"
+btn_clear = "🗑 Entfernen"
+btn_cancel = "✕ Abbrechen"
+btn_list = "◀︎ Einstellungen"
+saved = "✅ Gespeichert. Gilt ab deinem nächsten Turn — kein Neustart nötig."
+cleared = "🗑 Entfernt. Handoffs laufen wieder über dein Coding-Abo."
+err_empty = "⚠️ Das war leer."
+err_spaces = "⚠️ Da sind Leerzeichen drin — offenbar wurde mehr als nur der Key eingefügt."
+err_shape = "⚠️ Ein Google-API-Key beginnt mit `AIza`. Dieser nicht."
+err_short = "⚠️ Zu kurz für einen vollständigen Key."

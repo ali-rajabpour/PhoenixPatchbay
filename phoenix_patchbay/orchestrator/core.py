@@ -45,6 +45,7 @@ from phoenix_patchbay.orchestrator.commands import (
     cmd_model,
     cmd_persona,
     cmd_sessions,
+    cmd_settings,
     cmd_skills,
     cmd_status,
     cmd_upgrade,
@@ -510,6 +511,7 @@ class Orchestrator:
         reg.register_async("/persona", cmd_persona)
         reg.register_async("/folder", cmd_folder)
         reg.register_async("/consult", cmd_consult)
+        reg.register_async("/settings", cmd_settings)
         reg.register_async("/cron", cmd_cron)
         reg.register_async("/diagnose", cmd_diagnose)
         reg.register_async("/upgrade", cmd_upgrade)

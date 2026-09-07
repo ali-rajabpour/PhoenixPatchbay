@@ -7,6 +7,7 @@ missing answer that reads like a crash.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -89,3 +90,55 @@ def test_project_roots_can_be_named_or_bare(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert config is not None
     assert config["project_roots"] == {"site": "/srv/www", "IT": "/home/patchbay/IT"}
+
+
+class TestOneOwner:
+    """A bot answers exactly one person.
+
+    A shared bot is a shared session: two people in one topic interleave turns
+    in a context neither can follow. Refusing to start beats quietly keeping
+    the first id, because an allowlist that silently narrows is a security
+    change nobody notices until the person who was dropped asks why.
+    """
+
+    def test_a_second_owner_stops_the_start(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+        monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "111,222")
+
+        with pytest.raises(SystemExit):
+            ensure_config(tmp_path / "config.json")
+
+        assert not (tmp_path / "config.json").exists(), "half-written config left behind"
+
+    def test_one_owner_is_written(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+        monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "111")
+
+        assert ensure_config(tmp_path / "config.json") is True
+        written = json.loads((tmp_path / "config.json").read_text())
+        assert written["allowed_user_ids"] == [111]
+
+    def test_the_gemini_key_is_optional(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+        monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "111")
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+        ensure_config(tmp_path / "config.json")
+        assert "gemini_api_key" not in json.loads((tmp_path / "config.json").read_text())
+
+    def test_the_gemini_key_is_carried_through(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+        monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "111")
+        monkeypatch.setenv("GEMINI_API_KEY", "AIzaSyExample")
+
+        ensure_config(tmp_path / "config.json")
+        written = json.loads((tmp_path / "config.json").read_text())
+        assert written["gemini_api_key"] == "AIzaSyExample"

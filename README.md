@@ -516,6 +516,7 @@ This is **hot-reloadable** — change the language without restarting the bot.
 | `/handoff` | Show this conversation's handoff |
 | `/folder` | Choose the project folder this conversation works in |
 | `/consult` | Schedule for the disposable Consult topic |
+| `/settings` | Values you can change from the chat instead of on the host — currently the Gemini API key that pays for handoff write-ups |
 | `/stop` | Stop current message and discard queued messages |
 | `/interrupt` | Interrupt current message, queued messages continue |
 | `/stop_all` | Kill everything — all messages, sessions, all agents |

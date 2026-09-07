@@ -39,11 +39,14 @@ Then, in Telegram: `/menu` → **Account** to log the Claude CLI in, and
 | variable | what it is |
 |---|---|
 | `TELEGRAM_BOT_TOKEN` | from [@BotFather](https://t.me/BotFather) |
-| `TELEGRAM_ALLOWED_USER_IDS` | your numeric id, from [@userinfobot](https://t.me/userinfobot) |
+| `TELEGRAM_ALLOWED_USER_IDS` | your numeric id, from [@userinfobot](https://t.me/userinfobot) — exactly one |
 
-**The allowlist is the security boundary.** Anyone not on it is ignored. A bot
-with an empty allowlist would answer whoever found it, so the container refuses
-to start rather than write that config.
+**The allowlist is the security boundary, and it holds one person.** Anyone not
+on it is ignored. A bot with an empty allowlist would answer whoever found it,
+so the container refuses to start rather than write that config — and it refuses
+more than one id for the same reason it refuses none: a shared bot is a shared
+session, where two people in one topic interleave turns in a context neither can
+follow. Run a second bot for anyone else; that is what the isolation is for.
 
 Nothing is published to the network: Telegram long-polling is outbound-only,
 so the container is unreachable from the host, the LAN and the internet.

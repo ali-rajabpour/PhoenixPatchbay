@@ -623,6 +623,7 @@ item_clear = "🧹 Wissen & nieuw"
 item_handoff = "📋 Handoff"
 item_status = "📊 Status"
 item_consult = "🧭 Consult"
+item_settings = "⚙️ Instellingen"
 item_help = "❓ Help"
 
 [handoff]
@@ -653,3 +654,24 @@ archive_failed = "⚠️ De handoff kon niet worden gearchiveerd, dus er is niet
 [turn]
 btn_stop = "⏹ Stoppen"
 stopped = "Gestopt. Wat in de wachtrij staat, volgt nu."
+
+[settings]
+header = "**⚙️ Instellingen**"
+state_set = "✅ ingesteld"
+state_unset = "⚠️ niet ingesteld"
+item_gemini = "🔑 Gemini API-sleutel"
+consequence_gemini = "Handoff-samenvattingen lopen via je Claude-abonnement — ongeveer $0,17 per stuk."
+about_gemini = "Wordt alleen gebruikt om handoffs te schrijven, zodat dat werk niet op het abonnement komt dat je code schrijft. Een gratis sleutel van [AI Studio](https://aistudio.google.com/apikey) volstaat."
+ask_gemini = "Stuur de sleutel als bericht. Hij begint met `AIza`."
+ask_privacy = "_Je bericht wordt verwijderd zodra het gelezen is, en de sleutel wordt nooit volledig getoond. Hij gaat wel via Telegram._"
+btn_set = "🔑 Sleutel instellen"
+btn_replace = "🔑 Vervangen"
+btn_clear = "🗑 Verwijderen"
+btn_cancel = "✕ Annuleren"
+btn_list = "◀︎ Instellingen"
+saved = "✅ Opgeslagen. Geldt vanaf je volgende beurt — geen herstart nodig."
+cleared = "🗑 Verwijderd. Handoffs gaan weer via je coding-abonnement."
+err_empty = "⚠️ Dat was leeg."
+err_spaces = "⚠️ Daar zitten spaties in — er is blijkbaar meer dan de sleutel geplakt."
+err_shape = "⚠️ Een Google API-sleutel begint met `AIza`. Deze niet."
+err_short = "⚠️ Te kort voor een volledige sleutel."

@@ -1379,25 +1379,28 @@ class TestForumTopicPropagation:
 class TestNotificationService:
     """TelegramNotificationService fan-out resilience."""
 
-    async def test_notify_all_skips_unreachable_recipient(self) -> None:
-        """A 'chat not found' recipient (never pressed /start) must not abort
-        the fan-out — at startup it used to crash the whole boot."""
+    async def test_notify_all_survives_an_unreachable_owner(self) -> None:
+        """An owner who never pressed /start must not crash the boot.
+
+        The bot has exactly one owner now, so there is no second recipient to
+        fall back to — which makes swallowing the error more important, not
+        less: a startup notice nobody can receive should cost a log line, not
+        the process.
+        """
         from phoenix_patchbay.messenger.telegram.app import TelegramNotificationService
 
-        config = _make_config(user_ids=[1, 2])
+        config = _make_config(user_ids=[1])
         service = TelegramNotificationService(MagicMock(), config)
-        sent: list[int] = []
+        attempted: list[int] = []
 
         async def fake_send_rich(_bot: object, uid: int, _text: str, _opts: object) -> bool:
-            if uid == 1:
-                raise TelegramBadRequest(method=MagicMock(), message="chat not found")
-            sent.append(uid)
-            return True
+            attempted.append(uid)
+            raise TelegramBadRequest(method=MagicMock(), message="chat not found")
 
         with patch("phoenix_patchbay.messenger.telegram.app.send_rich", side_effect=fake_send_rich):
-            await service.notify_all("hello")
+            await service.notify_all("hello")  # must not raise
 
-        assert sent == [2]
+        assert attempted == [1]
 
 
 class TestPersonaPrompt:
@@ -1491,3 +1494,106 @@ class TestMenuPanelCarrier:
         assert 555 in deleted, "carrier message left in the chat"
         # The /menu command itself is deleted too, and that is a different id.
         assert 10 in deleted
+
+
+# ---------------------------------------------------------------------------
+# Settings: entering a secret from the chat
+# ---------------------------------------------------------------------------
+
+
+from phoenix_patchbay.session.key import SessionKey  # noqa: E402
+
+GKEY = "AIzaSyDUMMYdummyDUMMYdummyDUMMYdummy1234"
+
+
+class TestSettingsInput:
+    """The screen exists so nobody has to SSH to the host as root to set a key.
+
+    What it costs is that the value crosses Telegram, so the message must stop
+    being a message as early as possible and the value must never be echoed.
+    """
+
+    def _bot_with_settings(self, tmp_path: Path):
+        cfg = _make_config()
+        cfg.gemini_api_key = "null"
+        tg_bot, bot_instance = _make_tg_bot(cfg)
+        bot_instance.delete_message = AsyncMock()
+        tg_bot._orchestrator = MagicMock()
+        tg_bot._orchestrator.paths.config_path = tmp_path / "config.json"
+        (tmp_path / "config.json").write_text("{}", encoding="utf-8")
+        return tg_bot, bot_instance
+
+    @pytest.mark.asyncio
+    async def test_a_typed_key_is_deleted_and_stored(self, tmp_path: Path) -> None:
+        tg_bot, bot_instance = self._bot_with_settings(tmp_path)
+        key = SessionKey.telegram(1, 2)
+        tg_bot._pending_setting[key.storage_key] = ("gemini", 99)
+        msg = _make_message(chat_id=1, message_id=77, text=GKEY)
+
+        with patch(
+            "phoenix_patchbay.messenger.telegram.app.edit_selector_response", new=AsyncMock()
+        ) as shown:
+            handled = await tg_bot._collect_setting_value(msg, key)
+
+        assert handled is True
+        bot_instance.delete_message.assert_awaited_once()
+        assert bot_instance.delete_message.await_args.kwargs["message_id"] == 77
+        assert tg_bot._config.gemini_api_key == GKEY
+        # And the screen that comes back must not contain what was typed.
+        assert GKEY not in shown.await_args.args[3].text
+
+    @pytest.mark.asyncio
+    async def test_a_rejected_key_is_still_deleted(self, tmp_path: Path) -> None:
+        """Deletion happens before validation: a bad paste can still be secret."""
+        tg_bot, bot_instance = self._bot_with_settings(tmp_path)
+        key = SessionKey.telegram(1, 2)
+        tg_bot._pending_setting[key.storage_key] = ("gemini", 99)
+        msg = _make_message(chat_id=1, message_id=78, text="sk-wrong-provider-entirely")
+
+        with patch(
+            "phoenix_patchbay.messenger.telegram.app.edit_selector_response", new=AsyncMock()
+        ):
+            handled = await tg_bot._collect_setting_value(msg, key)
+
+        assert handled is True
+        bot_instance.delete_message.assert_awaited_once()
+        assert tg_bot._config.gemini_api_key == "null", "a bad value must not be stored"
+        # The question stays open so it can be retyped without renavigating.
+        assert key.storage_key in tg_bot._pending_setting
+
+    @pytest.mark.asyncio
+    async def test_an_ordinary_message_is_left_alone(self, tmp_path: Path) -> None:
+        """Nothing is pending, so this is work for the agent, not a setting."""
+        tg_bot, bot_instance = self._bot_with_settings(tmp_path)
+        key = SessionKey.telegram(1, 2)
+        msg = _make_message(chat_id=1, message_id=79, text="deploy the plugin")
+
+        assert await tg_bot._collect_setting_value(msg, key) is False
+        bot_instance.delete_message.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_cancelling_disarms_the_question(self, tmp_path: Path) -> None:
+        """Otherwise the next ordinary message is swallowed as a key."""
+        tg_bot, _ = self._bot_with_settings(tmp_path)
+        key = SessionKey.telegram(1, 2)
+        tg_bot._pending_setting[key.storage_key] = ("gemini", 99)
+
+        with patch(
+            "phoenix_patchbay.messenger.telegram.app.edit_selector_response", new=AsyncMock()
+        ):
+            await tg_bot._handle_settings(key, 99, "set:o:gemini")
+
+        assert key.storage_key not in tg_bot._pending_setting
+
+    @pytest.mark.asyncio
+    async def test_removing_clears_the_stored_value(self, tmp_path: Path) -> None:
+        tg_bot, _ = self._bot_with_settings(tmp_path)
+        tg_bot._config.gemini_api_key = GKEY
+        key = SessionKey.telegram(1, 2)
+
+        with patch(
+            "phoenix_patchbay.messenger.telegram.app.edit_selector_response", new=AsyncMock()
+        ):
+            await tg_bot._handle_settings(key, 99, "set:c:gemini")
+
+        assert tg_bot._config.gemini_api_key == ""

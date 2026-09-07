@@ -90,7 +90,7 @@ class TestStripAckToken:
 def _make_config(*, enabled: bool = True, interval: int = 30) -> AgentConfig:
     return AgentConfig(
         heartbeat=HeartbeatConfig(enabled=enabled, interval_minutes=interval),
-        allowed_user_ids=[100, 200],
+        allowed_user_ids=[100],
     )
 
 
@@ -120,7 +120,8 @@ class TestHeartbeatObserverSetup:
 
 
 class TestHeartbeatObserverTick:
-    async def test_tick_calls_handler_for_each_user(self) -> None:
+    async def test_tick_calls_handler_for_the_owner(self) -> None:
+        """A bot has one owner, so a tick is one call, not a fan-out."""
         config = _make_config()
         obs = HeartbeatObserver(config)
         handler = AsyncMock(return_value=None)
@@ -129,9 +130,8 @@ class TestHeartbeatObserverTick:
         with time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)):
             await obs._tick()
 
-        assert handler.call_count == 2
+        assert handler.call_count == 1
         handler.assert_any_await(100, None, None, None, "tg")
-        handler.assert_any_await(200, None, None, None, "tg")
 
     async def test_tick_skips_busy_chat(self) -> None:
         config = _make_config()
@@ -143,7 +143,8 @@ class TestHeartbeatObserverTick:
         with time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)):
             await obs._tick()
 
-        handler.assert_awaited_once_with(200, None, None, None, "tg")
+        # The owner is mid-turn, so the tick has nobody left to poke.
+        handler.assert_not_awaited()
 
     async def test_tick_delivers_alert(self) -> None:
         config = _make_config()
@@ -155,9 +156,8 @@ class TestHeartbeatObserverTick:
         with time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)):
             await obs._tick()
 
-        assert result_handler.call_count == 2
+        assert result_handler.call_count == 1
         result_handler.assert_any_await(100, "Hey, check this out!", None, "tg")
-        result_handler.assert_any_await(200, "Hey, check this out!", None, "tg")
 
     async def test_tick_suppresses_none_result(self) -> None:
         config = _make_config()
@@ -192,7 +192,7 @@ class TestHeartbeatObserverTick:
         with time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)):
             await obs._tick()
 
-        assert handler.call_count == 2
+        assert handler.call_count == 1
 
     async def test_handler_exception_does_not_crash(self) -> None:
         config = _make_config()
@@ -290,7 +290,7 @@ class TestHeartbeatGroupTargets:
         with time_machine.travel(datetime(2026, 1, 15, 14, 0, tzinfo=UTC)):
             await obs._tick()
 
-        assert handler.call_count == 2
+        assert handler.call_count == 1
 
     async def test_topic_id_flows_through_run_for_chat(self) -> None:
         config = _make_config()

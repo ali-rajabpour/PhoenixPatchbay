@@ -26,6 +26,10 @@ services:
       # Optional: directories the agent may work in, as `label=/path` or a bare
       # path. Everything under /home/patchbay is inside the container.
       PATCHBAY_PROJECT_ROOTS: ${PATCHBAY_PROJECT_ROOTS:-}
+      # Optional. With a key here the handoff write-up runs on Gemini instead
+      # of the coding session, so it is not billed to your Claude subscription.
+      # Without one, nothing changes: the write-up resumes the session as before.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       TZ: ${TZ:-UTC}
 
     # Everything stateful lives here: config, credentials, projects, memory.

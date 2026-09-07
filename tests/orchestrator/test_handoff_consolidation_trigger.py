@@ -2,18 +2,22 @@
 
 The handoff feature failed silently for weeks: the file existed, the sections
 were there, and nothing ever filled them, because consolidation only ran at a
-compaction the session never reached. These tests are about the trigger, not
-the prompt — the prompt was always fine.
+compaction the session never reached.
+
+These tests cover when the write-up runs and which writer does it. The prompt
+itself is covered in tests/handoff/test_prompts.py.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from phoenix_patchbay.handoff.transcript import write_offset
 from phoenix_patchbay.orchestrator.flows import (
     _CONSOLIDATE_AFTER_LOG_LINES,
     _maybe_consolidate,
@@ -36,6 +40,9 @@ def _orch(
     orch._sessions.get_active = AsyncMock(return_value=session)
     orch._cli_service.execute = AsyncMock(return_value=SimpleNamespace(is_error=False))
     orch.paths.patchbay_home = tmp_path
+    # A MagicMock attribute is truthy, and truthy here means "use Gemini".
+    # Say no explicitly so these stay tests of the in-session path.
+    orch._config.gemini_api_key = None
     return orch
 
 
@@ -118,3 +125,138 @@ class TestThePendingWatermark:
         store.write(KEY, None, "# Handoff\n\n## Done\n- written up already\n\n## Log\n")
 
         assert store.pending_log_lines(KEY, None) == 0
+
+
+# ---------------------------------------------------------------------------
+# Which writer does the work
+# ---------------------------------------------------------------------------
+
+
+HANDOFF_DOC = """# Handoff
+
+## Objective
+Keep rates.py correct.
+
+## Current state
+10% VAT.
+
+## Done
+## Next
+## Open questions
+## Constraints
+## Dead ends
+## Artifacts
+## Log
+"""
+
+
+def _external_orch(tmp_path: Path, *, result: str, api_key: str = "AIza-test") -> MagicMock:
+    """An orchestrator configured to hand the write-up to Gemini."""
+    orch = _orch(tmp_path, pending_lines=_CONSOLIDATE_AFTER_LOG_LINES)
+    orch._config.gemini_api_key = api_key
+    orch.paths.claude_home = tmp_path / "claude"
+    orch.paths.workspace = tmp_path / "ws"
+    orch.bindings.resolve.return_value = tmp_path / "proj"
+    orch.handoffs.read.return_value = ""
+    orch.handoffs.write.return_value = True
+    orch._cli_service.execute = AsyncMock(
+        return_value=SimpleNamespace(is_error=False, result=result)
+    )
+
+    # A transcript where the writer can find something to write up.
+    session_dir = orch.paths.claude_home / "projects" / str(tmp_path / "proj").replace("/", "-")
+    session_dir.mkdir(parents=True, exist_ok=True)
+    (session_dir / "sess-1.jsonl").write_text(
+        json.dumps({"type": "user", "message": {"content": [{"type": "text", "text": "do a thing"}]}})
+        + "\n",
+        encoding="utf-8",
+    )
+    return orch
+
+
+class TestWriterSelection:
+    @pytest.mark.asyncio
+    async def test_without_a_key_the_session_writes_itself_up(self, tmp_path: Path) -> None:
+        orch = _orch(tmp_path, pending_lines=_CONSOLIDATE_AFTER_LOG_LINES)
+        orch._config.gemini_api_key = None
+
+        await _maybe_consolidate(orch, KEY)
+
+        request = orch._cli_service.execute.await_args.args[0]
+        assert request.resume_session == "sess-1"
+        assert request.provider_override is None
+
+    @pytest.mark.asyncio
+    async def test_with_a_key_gemini_writes_it_up_instead(self, tmp_path: Path) -> None:
+        orch = _external_orch(tmp_path, result=HANDOFF_DOC)
+
+        await _maybe_consolidate(orch, KEY)
+
+        request = orch._cli_service.execute.await_args.args[0]
+        assert request.provider_override == "gemini"
+        # A Claude Code session has one writer. Resuming it from here would
+        # collide with the user's next message.
+        assert request.resume_session is None
+        assert "do a thing" in request.prompt, "the writer was sent no material"
+
+    @pytest.mark.asyncio
+    async def test_the_document_is_written_by_us_not_by_the_model(
+        self, tmp_path: Path
+    ) -> None:
+        """A model asked to edit a file can fail in ways that look like success."""
+        orch = _external_orch(tmp_path, result=HANDOFF_DOC)
+
+        await _maybe_consolidate(orch, KEY)
+
+        orch.handoffs.write.assert_called_once()
+        assert "10% VAT" in orch.handoffs.write.call_args.args[2]
+
+    @pytest.mark.asyncio
+    async def test_a_fenced_answer_is_unwrapped(self, tmp_path: Path) -> None:
+        orch = _external_orch(tmp_path, result=f"```markdown\n{HANDOFF_DOC}```")
+
+        await _maybe_consolidate(orch, KEY)
+
+        written = orch.handoffs.write.call_args.args[2]
+        assert written.startswith("# Handoff")
+        assert "```" not in written
+
+    @pytest.mark.asyncio
+    async def test_a_refusal_never_overwrites_the_handoff(self, tmp_path: Path) -> None:
+        orch = _external_orch(tmp_path, result="NOTHING TO RECORD")
+
+        await _maybe_consolidate(orch, KEY)
+
+        orch.handoffs.write.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_an_answer_that_is_not_a_handoff_is_refused(self, tmp_path: Path) -> None:
+        """Chat instead of a document must not replace a good handoff."""
+        orch = _external_orch(tmp_path, result="Sure! Here is what I think you want.")
+
+        await _maybe_consolidate(orch, KEY)
+
+        orch.handoffs.write.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_an_errored_writer_leaves_the_handoff_alone(self, tmp_path: Path) -> None:
+        orch = _external_orch(tmp_path, result="quota exceeded")
+        orch._cli_service.execute = AsyncMock(
+            return_value=SimpleNamespace(is_error=True, result="quota exceeded")
+        )
+
+        await _maybe_consolidate(orch, KEY)
+
+        orch.handoffs.write.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_nothing_new_in_the_transcript_costs_nothing(self, tmp_path: Path) -> None:
+        orch = _external_orch(tmp_path, result=HANDOFF_DOC)
+        handoff = tmp_path / "proj" / "handoffs" / "c1-t2.md"
+        handoff.parent.mkdir(parents=True, exist_ok=True)
+        session_dir = orch.paths.claude_home / "projects" / str(tmp_path / "proj").replace("/", "-")
+        write_offset(handoff, (session_dir / "sess-1.jsonl").stat().st_size)
+
+        await _maybe_consolidate(orch, KEY)
+
+        orch._cli_service.execute.assert_not_awaited()

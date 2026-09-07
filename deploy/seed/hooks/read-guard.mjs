@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// PreToolUse(Read): two guardrails on the files a user hands the agent.
+// PreToolUse(Read, Bash): two guardrails on the files a user hands the agent.
 //
 // 1. CONSENT. Contents are not extracted unless the user asked for that. A file
 //    sent to a topic is usually meant to be placed, attached, moved or linked —
@@ -10,6 +10,18 @@
 // 2. CHEAP COPY. When reading *is* wanted, the model still gets a small
 //    version: images become a 1024px WebP, PDFs become extracted text. The
 //    picture is legible and the text is exact; the megabytes are not.
+//
+// Bash is gated as well as Read, because gating Read alone does not work. Asked
+// for the contents of an unapproved PDF, the agent reached for `pdftotext` in a
+// shell, the Read hook never fired, and the message explaining the policy never
+// reached it — so it read the file without ever learning it should not. The
+// denial is how the policy is delivered; it has to be reachable from whichever
+// tool the agent picks first.
+//
+// ponytail: a command that never names the file (a glob, a variable, a script
+// that opens it) still gets through. This is a cost guard against an incurious
+// mistake, not a security boundary — an agent that means to read the file can.
+// Making it airtight would mean auditing arbitrary shell, which is not winnable.
 //
 // Everything except the consent gate fails open. A hook that breaks Read is
 // worse than a large file, so any unexpected error lets the original through.
@@ -31,6 +43,16 @@ const MIN_TEXT_CHARS = 200;
 const IMAGE_EXT = /\.(png|jpe?g|webp|gif|bmp|tiff?)$/i;
 const PDF_EXT = /\.pdf$/i;
 
+// Commands that exist to turn a document into text or pixels. Deliberately not
+// an allowlist of the safe ones: `ls`, `mv`, `cp`, `rm`, `zip`, `git add` and
+// every other way of *handling* a file must keep working, because placing and
+// attaching files is the workflow this guard exists to protect.
+const READERS =
+  /(^|[|;&(`\s])(pdftotext|pdftoppm|pdftocairo|pdfimages|pdfgrep|tesseract|ocrmypdf|mutool|qpdf|cat|head|tail|less|more|strings|xxd|od|hexdump|base64|img2txt|exiftool)(\s|$)/;
+
+// A path in a shell line, quoted or bare, ending in a gated extension.
+const PATH_IN_COMMAND = /(?:"([^"]+)"|'([^']+)'|(\S+))/g;
+
 // Consent is a file the agent touches after the user says yes. Named after the
 // document rather than a hash so the instruction we print can be pasted as-is;
 // two different files with one name is a collision worth trading for that.
@@ -44,6 +66,11 @@ process.stdin.on("end", () => {
   try {
     input = JSON.parse(raw || "{}");
   } catch {
+    process.exit(0);
+  }
+
+  if (input?.tool_name === "Bash") {
+    guardShell(String(input?.tool_input?.command ?? ""));
     process.exit(0);
   }
 
@@ -104,6 +131,28 @@ process.stdin.on("end", () => {
   }
   rewrite(input, out, `downscaled to ${MAX_EDGE}px (was ${Math.round(size / 1024)} KB)`);
 });
+
+function guardShell(command) {
+  if (!READERS.test(command)) return;
+  for (const match of command.matchAll(PATH_IN_COMMAND)) {
+    const candidate = (match[1] ?? match[2] ?? match[3] ?? "").replace(/^['"]|['"]$/g, "");
+    if (!IMAGE_EXT.test(candidate) && !PDF_EXT.test(candidate)) continue;
+    try {
+      statSync(candidate);
+    } catch {
+      continue; // not a file here; nothing to protect
+    }
+    if (existsSync(approvalPath(candidate))) continue;
+    deny(
+      `That command would read the contents of ${basename(candidate)}, which needs the user's say-so.\n` +
+        `If they asked you to place, attach, upload, move or link this file, you do not need to read it — carry on without it.\n` +
+        `If they asked what is inside it, ask them to confirm, then run:\n` +
+        `  mkdir -p ${APPROVED_DIR} && touch ${approvalPath(candidate)}\n` +
+        `and try again. Reading it through a shell is the same as reading it directly; use the Read tool once allowed, so the file is shrunk before you see it.\n` +
+        `Do not run that command on your own initiative.`
+    );
+  }
+}
 
 function deny(reason) {
   process.stdout.write(

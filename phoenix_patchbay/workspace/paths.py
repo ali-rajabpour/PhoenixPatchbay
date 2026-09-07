@@ -58,6 +58,16 @@ class PatchbayPaths:
         return self.config_dir / "config.json"
 
     @property
+    def claude_home(self) -> Path:
+        """Claude Code's own directory, where it keeps session transcripts.
+
+        Honours ``CLAUDE_CONFIG_DIR`` because the container sets it; falling
+        back to ``~/.claude`` would silently read the wrong machine's history.
+        """
+        override = os.environ.get("CLAUDE_CONFIG_DIR")
+        return Path(override).expanduser() if override else Path.home() / ".claude"
+
+    @property
     def sessions_path(self) -> Path:
         return self.patchbay_home / "sessions.json"
 

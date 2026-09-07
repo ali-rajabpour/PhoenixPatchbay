@@ -73,16 +73,22 @@ ENV NPM_CONFIG_PREFIX=/opt/npm-global \
 RUN mkdir -p /opt/npm-global \
     && printf 'export PATH=/opt/npm-global/bin:$PATH\n' > /etc/profile.d/npm-global.sh
 
-# Claude Code plus the CLI-side tools the ported workspace expects.
+# Claude Code plus the CLI-side tools the ported workspace expects. Gemini is
+# here for the handoff writer: with GEMINI_API_KEY set, the write-up runs on it
+# instead of the coding session. It is installed unconditionally because an
+# operator adding the key later should not have to rebuild the image.
 ARG CLAUDE_VERSION=latest
 ARG CONTEXT_MODE_VERSION=latest
 ARG AGENT_BROWSER_VERSION=latest
+ARG GEMINI_VERSION=latest
 RUN npm install -g \
         "@anthropic-ai/claude-code@${CLAUDE_VERSION}" \
         "context-mode@${CONTEXT_MODE_VERSION}" \
         "agent-browser@${AGENT_BROWSER_VERSION}" \
+        "@google/gemini-cli@${GEMINI_VERSION}" \
     && npm cache clean --force \
-    && claude --version
+    && claude --version \
+    && gemini --version
 
 # Phoenix Patchbay itself. Pin PATCHBAY_REF to a commit for a reproducible
 # build; `main` tracks the latest release.

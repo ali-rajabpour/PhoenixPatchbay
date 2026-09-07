@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 TOKEN_VAR = "TELEGRAM_BOT_TOKEN"  # noqa: S105 - the name of a variable, not a secret
 USERS_VAR = "TELEGRAM_ALLOWED_USER_IDS"
 ROOTS_VAR = "PATCHBAY_PROJECT_ROOTS"
+GEMINI_VAR = "GEMINI_API_KEY"
 
 
 def _user_ids(raw: str) -> list[int]:
@@ -69,6 +70,13 @@ def config_from_env() -> dict[str, Any] | None:
     roots = os.environ.get(ROOTS_VAR, "").strip()
     if roots:
         config["project_roots"] = _project_roots(roots)
+
+    # Optional, and the only thing it switches on is the handoff writer: with a
+    # key set, the write-up runs on Gemini instead of the coding session, so it
+    # is not billed to the subscription doing the work.
+    gemini = os.environ.get(GEMINI_VAR, "").strip()
+    if gemini:
+        config["gemini_api_key"] = gemini
     return config
 
 

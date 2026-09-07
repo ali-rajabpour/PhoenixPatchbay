@@ -81,6 +81,50 @@ Rules:
 """
 
 
+def external_consolidation_prompt(current: str, material: str) -> str:
+    """The same job, for a writer that was not in the conversation.
+
+    Two differences from the in-session version. The material is supplied
+    rather than remembered, and the answer is *returned* rather than written to
+    disk: a model that has to find and edit a file can fail in ways that look
+    like success, and the caller can refuse an empty answer but cannot undo a
+    botched edit.
+    """
+    return f"""You are writing the handoff for a coding conversation you did not take part in.
+
+Below is the handoff as it stands, then everything that has happened since it
+was last written up. Produce the complete new handoff.
+
+Sections, in this order: {", ".join(_SECTIONS)}.
+
+Rules:
+- Output the finished document and nothing else. No preamble, no explanation,
+  no code fence around the whole thing.
+- Every claim carries an identifier where one exists: a path, a commit sha, a
+  PR number, a record id. "Fixed the bug" is not acceptable; "fixed in
+  flows.py:150, commit f545f15" is.
+- Keep what is still true from the existing handoff. You are folding new work
+  into it, not starting again.
+- `## Dead ends` records what was tried, rejected, and why. A successor without
+  it repeats the same failures at the same cost.
+- `## Next` is ordered and specific enough to act on without asking.
+- Leave `## Log` present but empty; it is a scratch area the system refills.
+- Do not invent. If the material does not say, leave it out.
+- If the material contains nothing worth recording, reply with exactly:
+  NOTHING TO RECORD
+
+=== HANDOFF AS IT STANDS ===
+{current or "(the file is still the empty template)"}
+
+=== WHAT HAS HAPPENED SINCE ===
+{material}
+"""
+
+
+#: The external writer's way of saying a turn changed nothing worth keeping.
+NOTHING_TO_RECORD = "NOTHING TO RECORD"
+
+
 _LOG_HEADING = "## Log"
 
 

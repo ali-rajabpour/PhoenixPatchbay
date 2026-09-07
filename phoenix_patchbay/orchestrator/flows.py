@@ -18,7 +18,18 @@ from phoenix_patchbay.cli.types import AgentRequest, AgentResponse
 from phoenix_patchbay.config import NULLISH_TEXT_VALUES, resolve_timeout
 from phoenix_patchbay.errors import CLIError
 from phoenix_patchbay.handoff.paths import handoff_file
-from phoenix_patchbay.handoff.prompts import consolidation_prompt, injection_block
+from phoenix_patchbay.handoff.prompts import (
+    NOTHING_TO_RECORD,
+    consolidation_prompt,
+    external_consolidation_prompt,
+    injection_block,
+)
+from phoenix_patchbay.handoff.transcript import (
+    read_offset,
+    read_since,
+    transcript_path,
+    write_offset,
+)
 from phoenix_patchbay.i18n import t
 from phoenix_patchbay.infra.inflight import InflightTurn
 from phoenix_patchbay.log_context import set_log_context
@@ -228,7 +239,7 @@ _CONSOLIDATE_AFTER_LOG_LINES = 3
 
 
 async def consolidate_handoff(orch: Orchestrator, key: SessionKey) -> bool:
-    """Run one silent turn asking the model to write the handoff up properly.
+    """Write the handoff up properly, on whichever writer is configured.
 
     Best effort by design: a consolidation that fails must not block the user,
     and the previous handoff stays on disk either way — the store refuses to
@@ -237,6 +248,21 @@ async def consolidate_handoff(orch: Orchestrator, key: SessionKey) -> bool:
     session = await orch._sessions.get_active(key)
     if session is None or not session.session_id:
         return False
+
+    if orch._config.gemini_api_key:
+        return await _consolidate_externally(orch, key, session)
+    return await _consolidate_in_session(orch, key, session)
+
+
+async def _consolidate_in_session(
+    orch: Orchestrator, key: SessionKey, session: SessionData
+) -> bool:
+    """Resume the conversation and ask it to write itself up.
+
+    Cheap in tokens — the session is already cached — but it is billed to the
+    same subscription the user's work is, and its output joins the context it
+    is summarising.
+    """
     folder = orch.bindings.resolve(key.storage_key)
     request = AgentRequest(
         prompt=consolidation_prompt(handoff_file(key, folder, orch.paths)),
@@ -252,6 +278,88 @@ async def consolidate_handoff(orch: Orchestrator, key: SessionKey) -> bool:
         logger.warning("Handoff consolidation failed chat=%d: %s", key.chat_id, exc)
         return False
     return True
+
+
+async def _consolidate_externally(
+    orch: Orchestrator, key: SessionKey, session: SessionData
+) -> bool:
+    """Hand the write-up to Gemini, so it is not billed to the coding session.
+
+    Deliberately a *fresh* session: a Claude Code session has one writer, and a
+    second process resuming it while the user is typing would collide. The
+    material comes off disk instead, bounded to what has happened since the last
+    write-up.
+
+    The model returns the document; this writes it. A model asked to edit a file
+    can fail in ways that look like success — that is how the in-session version
+    spent a turn and changed nothing.
+    """
+    folder = orch.bindings.resolve(key.storage_key)
+    handoff = handoff_file(key, folder, orch.paths)
+    working_dir = str(folder) if folder is not None else str(orch.paths.workspace)
+    source = transcript_path(orch.paths.claude_home, working_dir, session.session_id)
+
+    material = read_since(source, read_offset(handoff))
+    if not material.text.strip():
+        logger.info("Nothing new in the transcript; handoff left alone")
+        return False
+
+    request = AgentRequest(
+        prompt=external_consolidation_prompt(orch.handoffs.read(key, folder), material.text),
+        chat_id=key.chat_id,
+        topic_id=key.topic_id,
+        transport=key.transport,
+        provider_override="gemini",
+        resume_session=None,
+        process_label="handoff_consolidation",
+    )
+    try:
+        response = await orch._cli_service.execute(request)
+    except (CLIError, RuntimeError, OSError) as exc:
+        logger.warning("External handoff write-up failed chat=%d: %s", key.chat_id, exc)
+        return False
+
+    if response.is_error:
+        logger.warning("External handoff write-up errored chat=%d: %s", key.chat_id, response.result[:200])
+        return False
+
+    document = _usable_handoff(response.result)
+    if document is None:
+        # Either nothing worth recording, or an answer that is not a handoff.
+        # The first is settled — advance past material already judged — and the
+        # second is not, so leave the watermark and let the next pass retry.
+        if _strip_fence(response.result).strip() == NOTHING_TO_RECORD:
+            write_offset(handoff, material.offset)
+        return False
+
+    if not orch.handoffs.write(key, folder, document):
+        return False
+    write_offset(handoff, material.offset)
+    return True
+
+
+def _usable_handoff(result: str) -> str | None:
+    """The returned document, or None when it is not one worth writing."""
+    document = _strip_fence(result)
+    if not document or document.strip() == NOTHING_TO_RECORD:
+        return None
+    if "## Objective" not in document:
+        logger.warning("External writer returned something that is not a handoff; ignoring")
+        return None
+    return document
+
+
+def _strip_fence(text: str) -> str:
+    """Remove a ```markdown wrapper if the model added one despite being asked not to."""
+    body = text.strip()
+    if not body.startswith("```"):
+        return body
+    lines = body.splitlines()
+    if len(lines) < 2:
+        return body
+    if lines[-1].strip().startswith("```"):
+        lines = lines[:-1]
+    return "\n".join(lines[1:]).strip()
 
 
 async def _maybe_consolidate(orch: Orchestrator, key: SessionKey) -> None:

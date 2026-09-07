@@ -138,3 +138,60 @@ class TestCheapCopy:
         img.write_bytes(b"not an image" * 40_000)
         approve("broken.png", tmp_path)
         assert run_hook(str(img), tmpdir=tmp_path) == {}
+
+
+def run_bash_hook(command: str, *, tmpdir: Path) -> dict:
+    """Invoke the hook as Claude Code does for a Bash call."""
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+    proc = subprocess.run(
+        ["node", str(HOOK)],
+        input=payload,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env={"TMPDIR": str(tmpdir), "PATH": "/usr/bin:/bin:/usr/local/bin"},
+    )
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout) if proc.stdout.strip() else {}
+
+
+class TestShellRoute:
+    """Gating Read alone did not work: the agent shelled out to pdftotext.
+
+    The denial is how the policy reaches the model, so it has to be reachable
+    from whichever tool the agent tries first.
+    """
+
+    def test_the_observed_bypass_is_closed(self, pdf: Path, tmp_path: Path) -> None:
+        out = run_bash_hook(f"pdftotext -q {pdf} -", tmpdir=tmp_path)
+        assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    def test_cat_of_an_unapproved_pdf_is_denied(self, pdf: Path, tmp_path: Path) -> None:
+        out = run_bash_hook(f"cat '{pdf}' | head -c 200", tmpdir=tmp_path)
+        assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    def test_approval_lets_the_shell_route_through(self, pdf: Path, tmp_path: Path) -> None:
+        approve("letter.pdf", tmp_path)
+        assert run_bash_hook(f"pdftotext -q {pdf} -", tmpdir=tmp_path) == {}
+
+    def test_handling_a_file_is_never_blocked(self, pdf: Path, tmp_path: Path) -> None:
+        """Placing, moving and listing are the workflow this guard protects."""
+        for command in (
+            f"mv {pdf} /tmp/elsewhere.pdf",
+            f"cp {pdf} /tmp/copy.pdf",
+            f"ls -l {pdf}",
+            f"rm -f {pdf}",
+            f"git add {pdf}",
+            f"zip out.zip {pdf}",
+            f"stat {pdf}",
+        ):
+            assert run_bash_hook(command, tmpdir=tmp_path) == {}, command
+
+    def test_unrelated_commands_are_untouched(self, tmp_path: Path) -> None:
+        assert run_bash_hook("cat /etc/hostname", tmpdir=tmp_path) == {}
+        assert run_bash_hook("pytest -q", tmpdir=tmp_path) == {}
+
+    def test_a_reader_naming_no_real_file_is_untouched(self, tmp_path: Path) -> None:
+        """Only an existing file is worth protecting; nothing else is guessed at."""
+        assert run_bash_hook("pdftotext /nowhere/ghost.pdf -", tmpdir=tmp_path) == {}

@@ -37,7 +37,13 @@
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "rtk hook claude" }]
+        "hooks": [
+          { "type": "command", "command": "rtk hook claude" },
+          {
+            "type": "command",
+            "command": "node /home/patchbay/.claude/hooks/read-guard.mjs"
+          }
+        ]
       },
       {
         "matcher": "Read",

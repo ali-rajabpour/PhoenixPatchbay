@@ -75,13 +75,17 @@ night cannot be capped by a stopwatch, so the deadline sits three hours after th
 line of output, wherever that was. A finished step that reports in resets it for the
 next one. It exists only to free a topic whose CLI has wedged.
 
-**Handoffs that survive compaction.** `/compact` and `/clear` lose what you were doing;
-both now write a handoff first. The file lives in the project folder — `handoffs/`,
-excluded through `.git/info/exclude` and verified with `git check-ignore` on every write,
-so a working note can never reach a commit. Its skeleton and its per-turn log are
-written by code rather than asked for: the model was given the path, the sections and an
-explicit instruction, and across three turns wrote nothing. Judgement is spent at
-consolidation, where it is the only thing being asked for.
+**Handoffs, written as the work happens.** The file lives in the project folder —
+`handoffs/`, excluded through `.git/info/exclude` and verified with `git check-ignore` on
+every write, so a working note can never reach a commit. Its skeleton and its per-turn
+log are written by code rather than asked for: the model was given the path, the sections
+and an explicit instruction, and across eleven turns wrote nothing, so that instruction
+was removed rather than kept as decoration. Judgement is spent on the write-up instead,
+where it is the only thing being asked for — and that now runs when a few turns' work has
+accumulated and no message is waiting, not only at `/compact` and `/clear`. It costs about
+as much as a real turn, so with `GEMINI_API_KEY` set it runs on Gemini rather than on the
+subscription doing the work: a separate call, handed the transcript since the last
+write-up with tool results stripped, returning a document that patchbay writes itself.
 
 **Every screen can be left.** Selectors and file-browser views carry a `◀︎ Menu` and a
 `✕ Close` on the way out, attached once at the point screens reach Telegram rather than
@@ -325,7 +329,8 @@ Main chat:  "Ask codex-agent to write tests for the API"
 - **One session per topic** — a topic is a session, named after the topic, in the topic's folder. Long work runs inside it rather than being handed to a detached run that must be told what it is doing. A message typed during a turn is queued behind it, per topic
 - **`⏹ Stop` on a running turn** — SIGINT, after which the queued message starts immediately. The CLI records the interruption itself, so the session stays resumable
 - **Idle deadline, not a stopwatch** — a turn ends when the work ends, when you stop it, or after three hours with nothing printed at all. Cron, webhook and injected runs keep their own duration cap (`cli_timeout`)
-- **Handoffs** — `/compact` and `/clear` write one first, into the project's `handoffs/`, excluded via `.git/info/exclude` and verified with `git check-ignore` on every write. `/handoff` shows the current one; `/clear` archives it outside the folder rather than deleting it
+- **Handoffs, written as you go** — every conversation keeps one in its project's `handoffs/`, excluded via `.git/info/exclude` and verified with `git check-ignore` on every write. What was asked is recorded by code on each turn; the write-up — objective, state, decisions, dead ends, what is next, each claim carrying a path or a commit — happens once a few turns' worth of work has piled up and you have not already sent the next message. `/compact` and `/clear` write one first too; `/handoff` shows the current one; `/clear` archives it outside the folder rather than deleting it
+- **The write-up can run on Gemini instead of your coding subscription** — set `GEMINI_API_KEY` (free from [AI Studio](https://aistudio.google.com/apikey)) and the handoff is written by a separate Gemini call rather than by resuming the session that did the work. Measured at ~$0.17 a time on the session's own subscription, which is real money on a busy day and invisible in the per-session totals. The writer was not in the conversation, so it is handed the transcript since the last write-up with tool *results* stripped — decisions, not the output of every grep. It returns the document and patchbay writes it, so an answer that is not a handoff leaves the good one alone. With no key set, nothing changes: the write-up resumes the session as before
 - **Memory scoped by reach** — `MAINMEMORY.md` holds only what is true across every project; anything about one codebase lives in that project's own knowledge file, so a topic does not pay for another topic's details on every turn
 - **A way out of every screen** — `◀︎ Menu` and `✕ Close` on selectors and browser views, attached where screens reach Telegram so a new screen inherits them
 - **Persistent memory** — plain Markdown files that survive across sessions
@@ -334,6 +339,7 @@ Main chat:  "Ask codex-agent to write tests for the API"
 - **Webhooks** — `wake` (inject into active chat) and `cron_task` (isolated one-shot run) modes
 - **Heartbeat** — proactive checks with per-target settings, group/topic support, chat validation
 - **Image processing** — auto-resize and WebP conversion for incoming images (configurable)
+- **Files you send are not read unless you say so** (container image) — a PDF or photo sent to a topic is usually meant to be placed, attached or uploaded, and one curious read of a PDF put 629 KB into a transcript that every later turn then paid for again. The agent has to ask first. Once you agree, it gets a 1024px copy of a photo or a PDF's extracted text rather than the original. Reading it through a shell is blocked the same way, while `mv`, `cp`, `ls`, `zip` and the rest keep working — it is a cost guard, not a sandbox
 - **Media transcription hooks** — configurable external audio/video transcription commands for bundled media tools
 - **Notification routing** — startup/upgrade lifecycle messages can target specific chats/topics
 - **Telegram status reactions** — stage-aware emoji tracker on the user message while the agent works

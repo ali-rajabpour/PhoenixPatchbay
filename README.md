@@ -83,9 +83,11 @@ and an explicit instruction, and across eleven turns wrote nothing, so that inst
 was removed rather than kept as decoration. Judgement is spent on the write-up instead,
 where it is the only thing being asked for — and that now runs when a few turns' work has
 accumulated and no message is waiting, not only at `/compact` and `/clear`. It costs about
-as much as a real turn, so with `GEMINI_API_KEY` set it runs on Gemini rather than on the
+as much as a real turn, so given a Gemini key it runs there rather than on the
 subscription doing the work: a separate call, handed the transcript since the last
 write-up with tool results stripped, returning a document that patchbay writes itself.
+The key is pasted into `/settings` from the chat and checked against Google before it is
+stored, so nobody has to open an SSH session as root to change a preference.
 
 **Every screen can be left.** Selectors and file-browser views carry a `◀︎ Menu` and a
 `✕ Close` on the way out, attached once at the point screens reach Telegram rather than
@@ -330,7 +332,8 @@ Main chat:  "Ask codex-agent to write tests for the API"
 - **`⏹ Stop` on a running turn** — SIGINT, after which the queued message starts immediately. The CLI records the interruption itself, so the session stays resumable
 - **Idle deadline, not a stopwatch** — a turn ends when the work ends, when you stop it, or after three hours with nothing printed at all. Cron, webhook and injected runs keep their own duration cap (`cli_timeout`)
 - **Handoffs, written as you go** — every conversation keeps one in its project's `handoffs/`, excluded via `.git/info/exclude` and verified with `git check-ignore` on every write. What was asked is recorded by code on each turn; the write-up — objective, state, decisions, dead ends, what is next, each claim carrying a path or a commit — happens once a few turns' worth of work has piled up and you have not already sent the next message. `/compact` and `/clear` write one first too; `/handoff` shows the current one; `/clear` archives it outside the folder rather than deleting it
-- **The write-up can run on Gemini instead of your coding subscription** — set `GEMINI_API_KEY` (free from [AI Studio](https://aistudio.google.com/apikey)) and the handoff is written by a separate Gemini call rather than by resuming the session that did the work. Measured at ~$0.17 a time on the session's own subscription, which is real money on a busy day and invisible in the per-session totals. The writer was not in the conversation, so it is handed the transcript since the last write-up with tool *results* stripped — decisions, not the output of every grep. It returns the document and patchbay writes it, so an answer that is not a handoff leaves the good one alone. With no key set, nothing changes: the write-up resumes the session as before
+- **The write-up can run on Gemini instead of your coding subscription** — paste a key into `/settings` (free from [AI Studio](https://aistudio.google.com/apikey), or `GEMINI_API_KEY` for a fresh deployment) and the handoff is written by a separate Gemini call rather than by resuming the session that did the work. Measured at ~$0.17 a time on the session's own subscription, which is real money on a busy day and invisible in the per-session totals. The writer was not in the conversation, so it is handed the transcript since the last write-up with tool *results* stripped — decisions, not the output of every grep. It returns the document and patchbay writes it, so an answer that is not a handoff leaves the good one alone. With no key set, nothing changes: the write-up resumes the session as before
+- **`/settings`, so a preference never needs an SSH session** — values that used to mean editing JSON on the host as root are set from the chat. Each row carries its own state (`✅ set` / `⚠️ not set`) with the cost of leaving it unset written next to it, and a secret is masked to `AIza••••••••4f2` — never echoed in full. **A key is checked against the service before it is stored**, so `✅` means Google accepted it, not that it matched a pattern: a spent quota says so rather than claiming the key is bad, and "could not reach Google" never counts as success. A stored key keeps a `🔄 Test` button, because keys get revoked without any screen changing. Your message is deleted the moment it is read — before validation, since a mistyped secret is still a secret — though it does still pass through Telegram to get there, which the prompt says before you paste
 - **Memory scoped by reach** — `MAINMEMORY.md` holds only what is true across every project; anything about one codebase lives in that project's own knowledge file, so a topic does not pay for another topic's details on every turn
 - **A way out of every screen** — `◀︎ Menu` and `✕ Close` on selectors and browser views, attached where screens reach Telegram so a new screen inherits them
 - **Persistent memory** — plain Markdown files that survive across sessions
@@ -516,7 +519,7 @@ This is **hot-reloadable** — change the language without restarting the bot.
 | `/handoff` | Show this conversation's handoff |
 | `/folder` | Choose the project folder this conversation works in |
 | `/consult` | Schedule for the disposable Consult topic |
-| `/settings` | Values you can change from the chat instead of on the host — currently the Gemini API key that pays for handoff write-ups |
+| `/settings` | Values you can change from the chat instead of on the host — currently the Gemini API key that pays for handoff write-ups, verified against Google before it is stored |
 | `/stop` | Stop current message and discard queued messages |
 | `/interrupt` | Interrupt current message, queued messages continue |
 | `/stop_all` | Kill everything — all messages, sessions, all agents |

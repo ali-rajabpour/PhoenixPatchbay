@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import pytest
 
+from phoenix_patchbay.cli.gemini_verify import VerifyResult
 from phoenix_patchbay.config import AgentConfig
 from phoenix_patchbay.i18n import init
 from phoenix_patchbay.orchestrator.selectors.settings_selector import (
     SETTINGS,
     ask_for_value,
+    checking_screen,
     current_value,
     is_settings_callback,
     mask,
@@ -16,6 +18,7 @@ from phoenix_patchbay.orchestrator.selectors.settings_selector import (
     setting_detail,
     setting_for,
     settings_root,
+    verdict_notice,
 )
 
 KEY = "AIzaSyDUMMYdummyDUMMYdummyDUMMYdummy1234"
@@ -66,6 +69,16 @@ class TestState:
         assert "$0.17" in settings_root(_config(gemini_api_key="null")).text
         assert "$0.17" not in settings_root(_config(gemini_api_key=KEY)).text
 
+    def test_a_stored_value_can_be_re_tested(self) -> None:
+        """Keys get revoked and quotas run out without this screen changing."""
+        buttons = setting_detail(_config(gemini_api_key=KEY), setting_for("gemini")).buttons
+        labels = [b.text for row in buttons.rows for b in row]
+        assert any("Test" in label for label in labels)
+
+        buttons = setting_detail(_config(gemini_api_key="null"), setting_for("gemini")).buttons
+        labels = [b.text for row in buttons.rows for b in row]
+        assert not any("Test" in label for label in labels)
+
     def test_remove_is_offered_only_when_there_is_something_to_remove(self) -> None:
         buttons = setting_detail(_config(gemini_api_key=KEY), setting_for("gemini")).buttons
         labels = [b.text for row in buttons.rows for b in row]
@@ -76,29 +89,35 @@ class TestState:
         assert not any("Remove" in label for label in labels)
 
 
-class TestValidation:
-    @pytest.mark.parametrize(
-        ("value", "expected"),
-        [
-            ("", "settings.err_empty"),
-            ("   ", "settings.err_empty"),
-            ("export GEMINI_API_KEY=AIzaSy...", "settings.err_spaces"),
-            ("https://aistudio.google.com/apikey", "settings.err_shape"),
-            ("sk-not-a-google-key-at-all-really", "settings.err_shape"),
-            ("AIzaShort", "settings.err_short"),
-        ],
-    )
-    def test_a_bad_paste_is_refused_before_it_is_stored(
-        self, value: str, expected: str
-    ) -> None:
-        assert setting_for("gemini").validate(value) == expected
+class TestVerdict:
+    """What the screen says after the service has answered."""
 
-    def test_a_real_looking_key_passes(self) -> None:
-        assert setting_for("gemini").validate(KEY) is None
+    def test_success_names_the_evidence(self) -> None:
+        assert "2" in verdict_notice(VerifyResult(ok=True, detail="2"))
 
-    def test_surrounding_whitespace_is_forgiven(self) -> None:
-        """Copying from a web page picks up a trailing newline."""
-        assert setting_for("gemini").validate(f"  {KEY}\n") is None
+    def test_success_without_a_count_still_reads_as_working(self) -> None:
+        assert "✅" in verdict_notice(VerifyResult(ok=True))
+
+    def test_a_refusal_tells_the_user_what_to_do(self) -> None:
+        text = verdict_notice(VerifyResult(ok=False, reason="settings.err_rejected"))
+        assert "AI Studio" in text
+
+    def test_a_spent_quota_does_not_read_as_a_bad_key(self) -> None:
+        text = verdict_notice(VerifyResult(ok=False, reason="settings.err_quota"))
+        assert "valid" in text.lower()
+
+    def test_an_unknown_failure_falls_back_to_refused(self) -> None:
+        assert verdict_notice(VerifyResult(ok=False)) != ""
+
+
+class TestCheckingScreen:
+    def test_it_offers_no_buttons(self) -> None:
+        """Every action here would race the check that is already running."""
+        assert checking_screen(setting_for("gemini")).buttons is None
+
+    def test_it_says_what_is_happening(self) -> None:
+        assert "Checking" in checking_screen(setting_for("gemini")).text
+
 
 
 class TestPrompt:
@@ -108,10 +127,13 @@ class TestPrompt:
         assert "deleted" in text
         assert "Telegram" in text
 
-    def test_a_refusal_is_shown_above_the_question(self) -> None:
-        text = ask_for_value(setting_for("gemini"), "settings.err_shape").text
-        assert "AIza" in text
-        assert text.index("⚠️") < text.index("Send the key")
+    def test_the_services_answer_is_shown_above_the_question(self) -> None:
+        """Rendered text, not a key: verdict_notice has already translated it."""
+        notice = verdict_notice(VerifyResult(ok=False, reason="settings.err_rejected"))
+        text = ask_for_value(setting_for("gemini"), notice).text
+
+        assert "❌" in text
+        assert text.index("❌") < text.index("Send the key")
 
     def test_the_question_can_be_left(self) -> None:
         """A screen whose only exit is sending something is a trap."""
@@ -127,7 +149,12 @@ class TestCallbacks:
 
     def test_round_trip(self) -> None:
         for setting in SETTINGS:
-            for prefix, action in (("set:o:", "open"), ("set:e:", "edit"), ("set:c:", "clear")):
+            for prefix, action in (
+                ("set:o:", "open"),
+                ("set:e:", "edit"),
+                ("set:c:", "clear"),
+                ("set:t:", "test"),
+            ):
                 assert parse_callback(f"{prefix}{setting.key}") == (action, setting.key)
 
     def test_the_root_is_not_an_action(self) -> None:

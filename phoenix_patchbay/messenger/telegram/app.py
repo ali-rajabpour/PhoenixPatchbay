@@ -2192,10 +2192,13 @@ class TelegramBot:
         from phoenix_patchbay.orchestrator.selectors.settings_selector import (
             SET_ROOT,
             ask_for_value,
+            checking_screen,
+            current_value,
             parse_callback,
             setting_detail,
             setting_for,
             settings_root,
+            verdict_notice,
         )
 
         async def show(resp: SelectorResponse) -> None:
@@ -2228,6 +2231,18 @@ class TelegramBot:
         if action == "clear":
             await self._store_setting(setting.field, "")
             await show(setting_detail(self._config, setting, notice=t("settings.cleared")))
+            return
+
+        if action == "test":
+            stored = current_value(self._config, setting)
+            if not stored:
+                await show(setting_detail(self._config, setting))
+                return
+            await show(checking_screen(setting))
+            result = await setting.verify(stored)
+            await show(
+                setting_detail(self._config, setting, notice=verdict_notice(result))
+            )
 
     async def _store_setting(self, field: str, value: str) -> None:
         """Persist one config field and make it live without a restart.
@@ -2247,8 +2262,10 @@ class TelegramBot:
         """Take a typed setting value. True when the message was consumed."""
         from phoenix_patchbay.orchestrator.selectors.settings_selector import (
             ask_for_value,
+            checking_screen,
             setting_detail,
             setting_for,
+            verdict_notice,
         )
 
         pending = self._pending_setting.get(key.storage_key)
@@ -2270,22 +2287,34 @@ class TelegramBot:
                 chat_id=message.chat.id, message_id=message.message_id
             )
 
-        refusal = setting.validate(value)
-        if refusal:
-            # The question stays open so a mistyped key can be sent again
-            # without walking back through the menu.
+        # Ask the service, rather than checking the value against a pattern.
+        # "Looks like a key" is the one thing the user does not need told; what
+        # they need to know is whether it works, and only the service knows.
+        await edit_selector_response(
+            self._bot, key.chat_id, pending[1], checking_screen(setting)
+        )
+        result = await setting.verify(value)
+
+        if not result.ok:
+            # The question stays open so the key can be sent again without
+            # walking back through the menu.
             await edit_selector_response(
-                self._bot, key.chat_id, pending[1], ask_for_value(setting, refusal)
+                self._bot,
+                key.chat_id,
+                pending[1],
+                ask_for_value(setting, verdict_notice(result)),
             )
             return True
 
+        # Stored only once it is known to work, so a stored value always means
+        # a working one and ✅ on the list is a fact rather than a hope.
         self._pending_setting.pop(key.storage_key, None)
         await self._store_setting(setting.field, value)
         await edit_selector_response(
             self._bot,
             key.chat_id,
             pending[1],
-            setting_detail(self._config, setting, notice=t("settings.saved")),
+            setting_detail(self._config, setting, notice=verdict_notice(result)),
         )
         return True
 

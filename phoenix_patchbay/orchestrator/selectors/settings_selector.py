@@ -22,11 +22,12 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from phoenix_patchbay.cli.gemini_verify import VerifyResult, verify_gemini_key
 from phoenix_patchbay.i18n import t
 from phoenix_patchbay.orchestrator.selectors.models import Button, ButtonGrid, SelectorResponse
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
     from phoenix_patchbay.config import AgentConfig
 
@@ -39,6 +40,8 @@ SET_OPEN = "set:o:"
 SET_EDIT = "set:e:"
 #: Clear it.
 SET_CLEAR = "set:c:"
+#: Re-check a stored value against the service that owns it.
+SET_TEST = "set:t:"
 #: Back to the list.
 SET_ROOT = "set:root"
 
@@ -56,30 +59,18 @@ class Setting:
 
     key: str
     field: str
-    validate: Callable[[str], str | None]
-    """Returns a translation key for the refusal, or None when the value is fine."""
+    verify: Callable[[str], Awaitable[VerifyResult]]
+    """Ask the service that owns this value whether it works.
 
-
-def _validate_gemini_key(value: str) -> str | None:
-    """Reject what is obviously not a Google API key, before it is stored.
-
-    Not authentication — only the API can say whether a key works. This catches
-    the paste that went wrong: a URL, a whole curl command, half a key.
+    A live check rather than a pattern: a regex can only say the value looks
+    plausible, which is the one thing nobody needs to be told. It rejects a
+    valid key whose format changed, accepts a revoked one, and cannot see the
+    typo it is supposedly guarding against.
     """
-    candidate = value.strip()
-    if not candidate:
-        return "settings.err_empty"
-    if any(c.isspace() for c in candidate):
-        return "settings.err_spaces"
-    if not candidate.startswith("AIza"):
-        return "settings.err_shape"
-    if len(candidate) < 35:
-        return "settings.err_short"
-    return None
 
 
 SETTINGS: tuple[Setting, ...] = (
-    Setting(key="gemini", field="gemini_api_key", validate=_validate_gemini_key),
+    Setting(key="gemini", field="gemini_api_key", verify=verify_gemini_key),
 )
 
 
@@ -149,6 +140,11 @@ def setting_detail(config: AgentConfig, setting: Setting, notice: str = "") -> S
         )
     ]
     if value:
+        # Keys get revoked and quotas run out, so "it worked when you typed it"
+        # stops being true without anything on this screen changing.
+        actions.append(
+            Button(text=t("settings.btn_test"), callback_data=f"{SET_TEST}{setting.key}")
+        )
         actions.append(
             Button(text=t("settings.btn_clear"), callback_data=f"{SET_CLEAR}{setting.key}")
         )
@@ -156,11 +152,36 @@ def setting_detail(config: AgentConfig, setting: Setting, notice: str = "") -> S
     return SelectorResponse(text="\n".join(lines), buttons=ButtonGrid(rows=[actions, back]))
 
 
-def ask_for_value(setting: Setting, refusal: str = "") -> SelectorResponse:
-    """Prompt for the value, with a way out that is not "send something"."""
+def checking_screen(setting: Setting) -> SelectorResponse:
+    """Shown while the service is asked. A live check takes a visible moment.
+
+    No buttons: every action here would race the check that is already running.
+    """
+    return SelectorResponse(
+        text=f"{t(f'settings.item_{setting.key}')}\n\n{t('settings.checking')}",
+        buttons=None,
+    )
+
+
+def verdict_notice(result: VerifyResult) -> str:
+    """One line saying what the service answered."""
+    if result.ok:
+        if result.detail:
+            return t("settings.verified_with_models", count=result.detail)
+        return t("settings.verified")
+    return t(result.reason or "settings.err_rejected")
+
+
+def ask_for_value(setting: Setting, notice: str = "") -> SelectorResponse:
+    """Prompt for the value, with a way out that is not "send something".
+
+    *notice* is rendered text, not a translation key: it comes from
+    :func:`verdict_notice`, which has already turned the service's answer into
+    a sentence. Passing a key here would double-translate it.
+    """
     lines = []
-    if refusal:
-        lines += [t(refusal), ""]
+    if notice:
+        lines += [notice, ""]
     lines.append(t(f"settings.ask_{setting.key}"))
     lines += ["", t("settings.ask_privacy")]
     cancel = [Button(text=t("settings.btn_cancel"), callback_data=f"{SET_OPEN}{setting.key}")]
@@ -169,7 +190,12 @@ def ask_for_value(setting: Setting, refusal: str = "") -> SelectorResponse:
 
 def parse_callback(data: str) -> tuple[str, str] | None:
     """Split ``set:<action>:<key>`` into ``(action, key)``. None for the root."""
-    for prefix, action in ((SET_OPEN, "open"), (SET_EDIT, "edit"), (SET_CLEAR, "clear")):
+    for prefix, action in (
+        (SET_OPEN, "open"),
+        (SET_EDIT, "edit"),
+        (SET_CLEAR, "clear"),
+        (SET_TEST, "test"),
+    ):
         if data.startswith(prefix):
             return action, data[len(prefix) :]
     return None

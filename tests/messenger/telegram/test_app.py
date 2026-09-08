@@ -1501,9 +1501,28 @@ class TestMenuPanelCarrier:
 # ---------------------------------------------------------------------------
 
 
+from dataclasses import replace  # noqa: E402
+
+from phoenix_patchbay.cli.gemini_verify import VerifyResult  # noqa: E402
+from phoenix_patchbay.orchestrator.selectors.settings_selector import (  # noqa: E402
+    SETTINGS,
+)
 from phoenix_patchbay.session.key import SessionKey  # noqa: E402
 
 GKEY = "AIzaSyDUMMYdummyDUMMYdummyDUMMYdummy1234"
+
+
+_REGISTRY = "phoenix_patchbay.orchestrator.selectors.settings_selector.SETTINGS"
+
+
+def _stub_registry(result: VerifyResult) -> tuple[AsyncMock, tuple]:
+    """A SETTINGS tuple whose gemini entry answers with *result*.
+
+    Setting is frozen, so the registry is replaced rather than the field
+    patched — which is also how the code finds it: setting_for() walks SETTINGS.
+    """
+    verifier = AsyncMock(return_value=result)
+    return verifier, (replace(SETTINGS[0], verify=verifier),)
 
 
 class TestSettingsInput:
@@ -1511,6 +1530,8 @@ class TestSettingsInput:
 
     What it costs is that the value crosses Telegram, so the message must stop
     being a message as early as possible and the value must never be echoed.
+    A value is stored only once the service says it works, so the ✅ on the list
+    is a fact rather than a hope.
     """
 
     def _bot_with_settings(self, tmp_path: Path):
@@ -1523,43 +1544,106 @@ class TestSettingsInput:
         (tmp_path / "config.json").write_text("{}", encoding="utf-8")
         return tg_bot, bot_instance
 
+    async def _send(self, tg_bot, key, msg, result: VerifyResult):
+        """Type a value into the pending question and return what was shown."""
+        _verifier, stub = _stub_registry(result)
+        with (
+            patch(
+                "phoenix_patchbay.messenger.telegram.app.edit_selector_response",
+                new=AsyncMock(),
+            ) as shown,
+            patch(_REGISTRY, stub),
+        ):
+            handled = await tg_bot._collect_setting_value(msg, key)
+        return handled, shown
+
     @pytest.mark.asyncio
-    async def test_a_typed_key_is_deleted_and_stored(self, tmp_path: Path) -> None:
+    async def test_a_verified_key_is_deleted_and_stored(self, tmp_path: Path) -> None:
         tg_bot, bot_instance = self._bot_with_settings(tmp_path)
         key = SessionKey.telegram(1, 2)
         tg_bot._pending_setting[key.storage_key] = ("gemini", 99)
         msg = _make_message(chat_id=1, message_id=77, text=GKEY)
 
-        with patch(
-            "phoenix_patchbay.messenger.telegram.app.edit_selector_response", new=AsyncMock()
-        ) as shown:
-            handled = await tg_bot._collect_setting_value(msg, key)
+        handled, shown = await self._send(
+            tg_bot, key, msg, VerifyResult(ok=True, detail="3")
+        )
 
         assert handled is True
         bot_instance.delete_message.assert_awaited_once()
         assert bot_instance.delete_message.await_args.kwargs["message_id"] == 77
         assert tg_bot._config.gemini_api_key == GKEY
-        # And the screen that comes back must not contain what was typed.
-        assert GKEY not in shown.await_args.args[3].text
+        # The user sees the check happen, then its result — and neither screen
+        # may contain what was typed.
+        texts = [call.args[3].text for call in shown.await_args_list]
+        assert any("Checking" in text for text in texts)
+        assert all(GKEY not in text for text in texts)
 
     @pytest.mark.asyncio
-    async def test_a_rejected_key_is_still_deleted(self, tmp_path: Path) -> None:
-        """Deletion happens before validation: a bad paste can still be secret."""
+    async def test_a_key_google_refuses_is_never_stored(self, tmp_path: Path) -> None:
+        """Storing an unverified key is what the check exists to prevent."""
         tg_bot, bot_instance = self._bot_with_settings(tmp_path)
         key = SessionKey.telegram(1, 2)
         tg_bot._pending_setting[key.storage_key] = ("gemini", 99)
-        msg = _make_message(chat_id=1, message_id=78, text="sk-wrong-provider-entirely")
+        msg = _make_message(chat_id=1, message_id=78, text="not-a-real-key")
 
-        with patch(
-            "phoenix_patchbay.messenger.telegram.app.edit_selector_response", new=AsyncMock()
-        ):
-            handled = await tg_bot._collect_setting_value(msg, key)
+        handled, _ = await self._send(
+            tg_bot, key, msg, VerifyResult(ok=False, reason="settings.err_rejected")
+        )
 
         assert handled is True
         bot_instance.delete_message.assert_awaited_once()
-        assert tg_bot._config.gemini_api_key == "null", "a bad value must not be stored"
+        assert tg_bot._config.gemini_api_key == "null"
         # The question stays open so it can be retyped without renavigating.
         assert key.storage_key in tg_bot._pending_setting
+
+    @pytest.mark.asyncio
+    async def test_an_unreachable_service_does_not_store_the_key(
+        self, tmp_path: Path
+    ) -> None:
+        """"Could not check" is not "works" — storing it would defeat the check."""
+        tg_bot, _bot = self._bot_with_settings(tmp_path)
+        key = SessionKey.telegram(1, 2)
+        tg_bot._pending_setting[key.storage_key] = ("gemini", 99)
+        msg = _make_message(chat_id=1, message_id=80, text=GKEY)
+
+        await self._send(
+            tg_bot, key, msg, VerifyResult(ok=False, reason="settings.err_network")
+        )
+
+        assert tg_bot._config.gemini_api_key == "null"
+
+    @pytest.mark.asyncio
+    async def test_a_refused_value_is_still_deleted(self, tmp_path: Path) -> None:
+        """Deletion happens before the check: a bad paste can still be secret."""
+        tg_bot, bot_instance = self._bot_with_settings(tmp_path)
+        key = SessionKey.telegram(1, 2)
+        tg_bot._pending_setting[key.storage_key] = ("gemini", 99)
+        msg = _make_message(chat_id=1, message_id=81, text="sk-wrong-provider")
+
+        await self._send(
+            tg_bot, key, msg, VerifyResult(ok=False, reason="settings.err_rejected")
+        )
+
+        bot_instance.delete_message.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_the_test_button_rechecks_the_stored_key(self, tmp_path: Path) -> None:
+        """A key that worked last week can be revoked without this screen changing."""
+        tg_bot, _ = self._bot_with_settings(tmp_path)
+        tg_bot._config.gemini_api_key = GKEY
+        key = SessionKey.telegram(1, 2)
+        verifier, stub = _stub_registry(VerifyResult(ok=True, detail="3"))
+
+        with (
+            patch(
+                "phoenix_patchbay.messenger.telegram.app.edit_selector_response",
+                new=AsyncMock(),
+            ),
+            patch(_REGISTRY, stub),
+        ):
+            await tg_bot._handle_settings(key, 99, "set:t:gemini")
+
+        verifier.assert_awaited_once_with(GKEY)
 
     @pytest.mark.asyncio
     async def test_an_ordinary_message_is_left_alone(self, tmp_path: Path) -> None:

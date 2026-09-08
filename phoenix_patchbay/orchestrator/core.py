@@ -52,6 +52,7 @@ from phoenix_patchbay.orchestrator.commands import (
 )
 from phoenix_patchbay.orchestrator.directives import parse_directives
 from phoenix_patchbay.orchestrator.flows import (
+    HANDOFF_WRITER_LABEL,
     StreamingCallbacks,
     heartbeat_flow,
     named_session_flow,
@@ -244,6 +245,19 @@ class Orchestrator:
         """
         if request.process_label.startswith("ns:"):
             return None  # named sessions stay in workspace (resume consistency)
+        if request.process_label == HANDOFF_WRITER_LABEL and not request.resume_session:
+            # The *external* write-up — the one that starts a fresh session
+            # rather than resuming the conversation. It reads no files, since
+            # everything it needs is in the prompt, so it has no business
+            # sitting in the user's repository: a summariser with tool access
+            # to a project is blast radius nobody asked for, and Gemini refuses
+            # to run in a directory it has not been told to trust, which is what
+            # made every write-up in a bound topic fail.
+            #
+            # The in-session writer is excluded by the resume check on purpose.
+            # It continues a conversation that began in the project folder, and
+            # moving its cwd mid-resume would change a path that works today.
+            return None
         key = SessionKey.for_transport(request.transport, request.chat_id, request.topic_id)
         bound = self._bindings.resolve(key.storage_key)
         return str(bound) if bound is not None else None

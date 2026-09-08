@@ -284,3 +284,47 @@ class TestWriterModel:
         from phoenix_patchbay.config import AgentConfig
 
         assert not hasattr(AgentConfig(allowed_user_ids=[1]), "handoff_writer_model")
+
+
+class TestWriterWorkingDirectory:
+    """Where the external write-up runs, and why it is not the project folder."""
+
+    def _request(self, *, resume: str | None) -> object:
+        from phoenix_patchbay.cli.types import AgentRequest
+        from phoenix_patchbay.orchestrator.flows import HANDOFF_WRITER_LABEL
+
+        return AgentRequest(
+            prompt="x",
+            chat_id=1,
+            topic_id=2,
+            transport="tg",
+            resume_session=resume,
+            process_label=HANDOFF_WRITER_LABEL,
+        )
+
+    def _orchestrator(self, tmp_path: Path):  # noqa: ANN202
+        from phoenix_patchbay.orchestrator.core import Orchestrator
+
+        orch = MagicMock(spec=Orchestrator)
+        orch._bindings = MagicMock()
+        orch._bindings.resolve.return_value = tmp_path / "someproject"
+        return orch
+
+    def test_the_external_writer_leaves_the_project_folder(self, tmp_path: Path) -> None:
+        """Gemini refuses an untrusted cwd, and a summariser needs no repo access."""
+        from phoenix_patchbay.orchestrator.core import Orchestrator
+
+        orch = self._orchestrator(tmp_path)
+        got = Orchestrator._resolve_request_working_dir(orch, self._request(resume=None))
+
+        assert got is None, "the write-up would run inside the user's repository"
+
+    def test_the_in_session_writer_stays_put(self, tmp_path: Path) -> None:
+        """It resumes a conversation that began there; moving it changes a
+        working path for no benefit — Claude has no trust gate."""
+        from phoenix_patchbay.orchestrator.core import Orchestrator
+
+        orch = self._orchestrator(tmp_path)
+        got = Orchestrator._resolve_request_working_dir(orch, self._request(resume="sess-1"))
+
+        assert got == str(tmp_path / "someproject")

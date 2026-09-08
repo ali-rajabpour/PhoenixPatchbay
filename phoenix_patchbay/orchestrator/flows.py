@@ -254,6 +254,11 @@ async def _prepare_normal(
 #: was that week.
 HANDOFF_WRITER_MODEL = "gemini-3.5-flash-lite"
 
+#: Process label for the write-up call. Named because two other modules key
+#: behaviour off it: the working-directory resolver keeps the writer out of
+#: the user's repository, and the tests filter it out of CLI call counts.
+HANDOFF_WRITER_LABEL = "handoff_consolidation"
+
 #: Log entries to accumulate before a consolidation is worth its own model turn.
 #: One per user message, so this is a rough stand-in for "a task's worth of
 #: work" — the day this was measured ran eleven turns across about four tasks.
@@ -294,7 +299,7 @@ async def _consolidate_in_session(
         topic_id=key.topic_id,
         transport=key.transport,
         resume_session=session.session_id,
-        process_label="handoff_consolidation",
+        process_label=HANDOFF_WRITER_LABEL,
     )
     try:
         await orch._cli_service.execute(request)
@@ -336,7 +341,7 @@ async def _consolidate_externally(
         provider_override="gemini",
         model_override=HANDOFF_WRITER_MODEL,
         resume_session=None,
-        process_label="handoff_consolidation",
+        process_label=HANDOFF_WRITER_LABEL,
     )
     try:
         response = await orch._cli_service.execute(request)

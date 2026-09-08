@@ -51,6 +51,15 @@ follow. Run a second bot for anyone else; that is what the isolation is for.
 Nothing is published to the network: Telegram long-polling is outbound-only,
 so the container is unreachable from the host, the LAN and the internet.
 
+## One optional answer
+
+`GEMINI_API_KEY` (free from [AI Studio](https://aistudio.google.com/apikey)) moves
+the handoff write-up off the subscription doing your coding. Set it in `.env` before
+the first start, or paste it later from the chat with `/settings` — which checks it
+against Google before storing it, so you find out it works there and then rather than
+when a write-up quietly fails. Without a key nothing breaks: the write-up resumes the
+coding session as it did before.
+
 ## Where your projects go
 
 Everything lives in the `patchbay_home` volume, mounted at `/home/patchbay`.

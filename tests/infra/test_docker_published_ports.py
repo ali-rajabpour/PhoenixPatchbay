@@ -89,7 +89,7 @@ class TestDockerManagerPublishedPorts:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("phoenix_patchbay.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", side_effect=mock_exec),
         ):
             result = await mgr.setup()
@@ -120,7 +120,7 @@ class TestDockerManagerPublishedPorts:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("phoenix_patchbay.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", side_effect=mock_exec),
         ):
             await mgr.setup()
@@ -156,7 +156,7 @@ class TestDockerManagerPublishedPorts:
             return 0, ""
 
         with (
-            patch("shutil.which", return_value="/usr/bin/docker"),
+            patch("phoenix_patchbay.infra.docker.which", return_value="/usr/bin/docker"),
             patch.object(mgr, "_exec", side_effect=mock_exec),
         ):
             await mgr.setup()

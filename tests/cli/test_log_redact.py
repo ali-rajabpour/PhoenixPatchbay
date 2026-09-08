@@ -190,7 +190,7 @@ async def test_docker_debug_log_masks_embedded_url_credentials(
 
     with (
         caplog.at_level(logging.DEBUG),
-        patch("shutil.which", return_value="/usr/bin/docker"),
+        patch("phoenix_patchbay.infra.docker.which", return_value="/usr/bin/docker"),
         patch.object(manager, "_exec", new=AsyncMock(side_effect=mock_exec)),
         patch.object(
             manager,

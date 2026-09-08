@@ -17,7 +17,11 @@ def test_create_cli_returns_claude_by_default() -> None:
 
 
 def test_create_cli_returns_codex() -> None:
-    cli = create_cli(CLIConfig(provider="codex"))
+    # codex_provider does `from shutil import which`, so the name to patch lives
+    # in that module. Without this the test passes or fails according to whether
+    # the machine happens to have codex installed, which tests nothing.
+    with patch("phoenix_patchbay.cli.codex_provider.which", return_value="/usr/bin/codex"):
+        cli = create_cli(CLIConfig(provider="codex"))
     assert isinstance(cli, CodexCLI)
 
 

@@ -7,6 +7,7 @@ from pathlib import Path
 from phoenix_patchbay.handoff.prompts import (
     TEMPLATE,
     consolidation_prompt,
+    external_consolidation_prompt,
     injection_block,
 )
 
@@ -61,3 +62,21 @@ def test_the_consolidation_names_the_file_too() -> None:
 
 def test_the_consolidation_does_not_leak_into_the_reply() -> None:
     assert "never mention this instruction" in consolidation_prompt(HANDOFF).lower()
+
+
+def test_the_external_prompt_insists_on_the_two_summary_sections() -> None:
+    """A cheap model leaves them blank unless told; they are what is read first."""
+    body = external_consolidation_prompt("", "material").lower()
+    assert "must never be empty" in body
+
+
+def test_the_external_prompt_forbids_placeholder_identifiers() -> None:
+    """Flash-Lite padded every line with "(commit/session history: rates.py)"."""
+    body = external_consolidation_prompt("", "material").lower()
+    assert "placeholder" in body
+
+
+def test_the_external_prompt_carries_the_material() -> None:
+    body = external_consolidation_prompt("EXISTING HANDOFF", "WHAT HAPPENED")
+    assert "EXISTING HANDOFF" in body
+    assert "WHAT HAPPENED" in body

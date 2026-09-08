@@ -100,9 +100,15 @@ Sections, in this order: {", ".join(_SECTIONS)}.
 Rules:
 - Output the finished document and nothing else. No preamble, no explanation,
   no code fence around the whole thing.
+- `## Objective` and `## Current state` must never be empty. They are what a
+  successor reads first: one says what this conversation is for, the other says
+  where the work stands now, in enough detail to resume without asking. Write
+  them even when the rest is thin.
 - Every claim carries an identifier where one exists: a path, a commit sha, a
   PR number, a record id. "Fixed the bug" is not acceptable; "fixed in
-  flows.py:150, commit f545f15" is.
+  flows.py:150, commit f545f15" is. Where no identifier exists, write the claim
+  plainly — never pad it with a placeholder like "(see session history)", which
+  reads like a reference and points at nothing.
 - Keep what is still true from the existing handoff. You are folding new work
   into it, not starting again.
 - `## Dead ends` records what was tried, rejected, and why. A successor without

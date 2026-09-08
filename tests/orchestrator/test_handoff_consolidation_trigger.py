@@ -20,6 +20,7 @@ import pytest
 from phoenix_patchbay.handoff.transcript import write_offset
 from phoenix_patchbay.orchestrator.flows import (
     _CONSOLIDATE_AFTER_LOG_LINES,
+    HANDOFF_WRITER_MODEL,
     _maybe_consolidate,
 )
 from phoenix_patchbay.session.key import SessionKey
@@ -194,6 +195,9 @@ class TestWriterSelection:
 
         request = orch._cli_service.execute.await_args.args[0]
         assert request.provider_override == "gemini"
+        # Naming the model matters: with none, no --model flag is passed and the
+        # Gemini CLI picks its own default, which changes between versions.
+        assert request.model_override == HANDOFF_WRITER_MODEL
         # A Claude Code session has one writer. Resuming it from here would
         # collide with the user's next message.
         assert request.resume_session is None
@@ -260,3 +264,23 @@ class TestWriterSelection:
         await _maybe_consolidate(orch, KEY)
 
         orch._cli_service.execute.assert_not_awaited()
+
+
+class TestWriterModel:
+    """The write-up model is pinned, not configured."""
+
+    def test_it_is_a_concrete_version_not_a_moving_alias(self) -> None:
+        """`gemini-flash-latest` would re-point under us without a deploy."""
+        assert HANDOFF_WRITER_MODEL.startswith("gemini-")
+        assert not HANDOFF_WRITER_MODEL.endswith("-latest")
+
+    def test_it_is_not_reachable_from_settings(self) -> None:
+        """Ali's call: the user picks the key, never the model behind it."""
+        from phoenix_patchbay.orchestrator.selectors.settings_selector import SETTINGS
+
+        assert all(s.field != "handoff_writer_model" for s in SETTINGS)
+
+    def test_it_is_not_a_config_field(self) -> None:
+        from phoenix_patchbay.config import AgentConfig
+
+        assert not hasattr(AgentConfig(allowed_user_ids=[1]), "handoff_writer_model")

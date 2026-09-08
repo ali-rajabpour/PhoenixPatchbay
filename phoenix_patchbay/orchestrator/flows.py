@@ -230,6 +230,30 @@ async def _prepare_normal(
     return request, session
 
 
+#: The model the external handoff writer uses, pinned rather than configurable.
+#:
+#: Not a setting on purpose. The write-up is bookkeeping with a fixed shape —
+#: read a transcript slice, fill nine sections, attach an identifier to every
+#: claim — so "which model" is an implementation detail, and a wrong choice
+#: shows up as a quietly worse handoff nobody reads until they need it.
+#:
+#: Why this one, at 17K in / 1.5K out per write-up (2026-09 list prices):
+#:
+#:   gemini-2.5-flash-lite   $0.0023   older, weakest at following a format
+#:   gemini-3.5-flash-lite   $0.0089   built for focused subagent tasks
+#:   gemini-3.8-flash        $0.0092   intro price; doubles on 2027-01-01
+#:   gemini-3.5-flash        $0.0390   overkill for summarising
+#:
+#: against $0.1658 for the in-session Claude write-up it replaces. Context
+#: window decides nothing here: every candidate holds 1M tokens and the slice
+#: is capped near 15K, so the trade is price against how reliably the format is
+#: obeyed. Flash-Lite 3.5 is the cheapest tier Google positions for exactly this
+#: — a subagent doing one focused job — and it carries no scheduled price rise.
+#: Being explicit also fixes a real gap: with no model named, no --model flag
+#: was passed at all and the Gemini CLI silently used whatever its own default
+#: was that week.
+HANDOFF_WRITER_MODEL = "gemini-3.5-flash-lite"
+
 #: Log entries to accumulate before a consolidation is worth its own model turn.
 #: One per user message, so this is a rough stand-in for "a task's worth of
 #: work" — the day this was measured ran eleven turns across about four tasks.
@@ -310,6 +334,7 @@ async def _consolidate_externally(
         topic_id=key.topic_id,
         transport=key.transport,
         provider_override="gemini",
+        model_override=HANDOFF_WRITER_MODEL,
         resume_session=None,
         process_label="handoff_consolidation",
     )

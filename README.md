@@ -332,6 +332,7 @@ Main chat:  "Ask codex-agent to write tests for the API"
 - **`⏹ Stop` on a running turn** — SIGINT, after which the queued message starts immediately. The CLI records the interruption itself, so the session stays resumable
 - **Idle deadline, not a stopwatch** — a turn ends when the work ends, when you stop it, or after three hours with nothing printed at all. Cron, webhook and injected runs keep their own duration cap (`cli_timeout`)
 - **Handoffs, written as you go** — every conversation keeps one in its project's `handoffs/`, excluded via `.git/info/exclude` and verified with `git check-ignore` on every write. What was asked is recorded by code on each turn; the write-up — objective, state, decisions, dead ends, what is next, each claim carrying a path or a commit — happens once a few turns' worth of work has piled up and you have not already sent the next message. `/compact` and `/clear` write one first too; `/handoff` shows the current one; `/clear` archives it outside the folder rather than deleting it
+- **An append-only history beside every handoff** — the handoff is rewritten at each write-up and is lossy on purpose: it is injected on every turn, so it has to stay small, and by month two the reasoning behind a week-one decision is one line. Before anything overwrites it, the whole document is appended to `handoffs/<conversation>.history.md` — never rewritten, never injected, never deleted, not even by `/clear`. It costs nothing per turn because it is not context; it is a file the agent is told the path to and searches when the handoff refers to something it no longer explains. Identical revisions are skipped, so a failed write-up does not fill it with copies, and it is refused outright if git would track it — the guard runs *before* the append, because a handoff can be deleted and rewritten but a history cannot
 - **The write-up can run on Gemini instead of your coding subscription** — paste a key into `/settings` (free from [AI Studio](https://aistudio.google.com/apikey), or `GEMINI_API_KEY` for a fresh deployment) and the handoff is written by a separate Gemini call rather than by resuming the session that did the work. Measured at ~$0.17 a time on the session's own subscription, which is real money on a busy day and invisible in the per-session totals. The writer was not in the conversation, so it is handed the transcript since the last write-up with tool *results* stripped — decisions, not the output of every grep. It returns the document and patchbay writes it, so an answer that is not a handoff leaves the good one alone. **URLs and non-Latin strings never reach the model at all** — they are lifted out, replaced with plain ASCII placeholders, and substituted back verbatim, because a model asked to retype a URL will eventually drop a character from it. Once it did: an Arabic slug came back one letter short, a 404 in a document someone would later trust. The model arranges the handoff; it does not transcribe the literals. The model is pinned to `gemini-3.5-flash-lite` and is deliberately not configurable — the write-up has a fixed shape, so which model does it is an implementation detail, and at ~$0.009 a time against ~$0.17 in-session the choice is already 19× cheaper without asking anyone to tune it. It runs in the shared workspace rather than your project folder: it reads no files, so a summariser with tool access to a repository is blast radius nobody asked for. Verified end to end — three turns of real work, then a write-up naming the file, the rate change and the self-check that proves it. With no key set, nothing changes: the write-up resumes the session as before
 - **`/settings`, so a preference never needs an SSH session** — values that used to mean editing JSON on the host as root are set from the chat. Each row carries its own state (`✅ set` / `⚠️ not set`) with the cost of leaving it unset written next to it, and a secret is masked to `AIza••••••••4f2` — never echoed in full. **A key is checked against the service before it is stored**, so `✅` means Google accepted it, not that it matched a pattern: a spent quota says so rather than claiming the key is bad, and "could not reach Google" never counts as success. A stored key keeps a `🔄 Test` button, because keys get revoked without any screen changing. Your message is deleted the moment it is read — before validation, since a mistyped secret is still a secret — though it does still pass through Telegram to get there, which the prompt says before you paste
 - **Memory scoped by reach** — `MAINMEMORY.md` holds only what is true across every project; anything about one codebase lives in that project's own knowledge file, so a topic does not pay for another topic's details on every turn
@@ -635,6 +636,94 @@ Other projects manipulate SDKs or patch CLIs and risk violating provider terms o
 - Rule files are plain Markdown (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md` — `AGENTS.md` is shared by Codex and Grok)
 - Memory is one Markdown file per agent
 - All state is JSON — no database, no external services
+
+## Compared to Hermes Agent
+
+[Hermes Agent](https://github.com/nousresearch/hermes-agent) (Nous Research, MIT) is the
+project patchbay gets compared to most, and the comparison is worth making properly,
+because the two are not the same kind of thing.
+
+**Hermes is an agent. Patchbay is a machine that runs agents.**
+
+Hermes brings its own agent loop and its own model layer — point it at Nous Portal,
+OpenRouter, OpenAI or a custom endpoint and it reasons, calls tools, and writes its own
+skills. Patchbay has neither: it runs the official CLIs (`claude`, `codex`, `gemini`,
+`agy`, `grok`) as subprocesses, so the reasoning is whatever your subscription already
+pays for, and the surface is a chat window where the terminal would be. Most of what
+follows is a consequence of that one difference.
+
+### Side by side
+
+| | Phoenix Patchbay | Hermes Agent |
+|---|---|---|
+| **What it is** | Runtime that fronts agents you already have | A complete agent, loop included |
+| **Who reasons** | The CLI's model, unchanged | Hermes, against your chosen endpoint |
+| **Cost model** | Your existing CLI subscription — no API key, no per-token bill | Per-token against an API key |
+| **Switching providers** | Per topic, mid-project, no migration | One agent, one config |
+| **Surfaces** | Telegram, Matrix, Slack | 20+ (Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Teams, …) |
+| **Where work runs** | One always-on box you own | Local, Docker, SSH, Daytona, Singularity, Modal, Vercel Sandbox |
+| **Unit of isolation** | One topic = one session = one project folder | One agent; sub-agents as short-lived workers |
+| **Memory the model sees** | Handoff, re-injected every turn | `MEMORY.md` / `USER.md`, snapshotted into the system prompt at session start |
+| **Long-term recall** | Append-only history per conversation, plus archives and transcripts — searched, not indexed | SQLite FTS5 across sessions, with LLM summarisation |
+| **Improvement loop** | Per conversation, through its handoff | Self-authored, self-revising skills (agentskills.io standard) |
+| **State** | JSON and Markdown, no database | Markdown plus SQLite |
+| **MCP** | Whatever the underlying CLI supports | Built in |
+
+### Behaviour, where it actually differs
+
+**Memory freshness.** Patchbay re-injects the handoff on every turn, so something learned
+at minute 3 is in front of the model at minute 40. Hermes injects its curated memory as a
+snapshot taken at session start; mid-session writes are durable immediately but do not
+change the running prompt until it is rebuilt. Patchbay pays for that freshness in tokens
+on every single turn, which is exactly why the handoff is kept small.
+
+**Guaranteed versus retrieved.** A handoff is injected text: if a constraint is written
+down, the model has read it. Search-backed recall is probabilistic — the fact can be in
+the store and still never surface for the query the agent happened to ask. For rules that
+must never be broken, injection is the stronger guarantee. For "what did we try in July",
+search is the only thing that scales.
+
+**Precision over time.** Both keep everything; they differ in how it is found again. The
+handoff itself is lossy by design, so every version of it is appended to
+`handoffs/<conversation>.history.md` before it is overwritten — plain Markdown, newest
+last, and the agent is given the path in the same breath as the handoff. Retrieval is a
+search over a file rather than a query against an index: adequate at the scale one
+conversation reaches, and it stays greppable by anything, corrupts one line at a time
+rather than one database at a time, and needs no schema. Hermes's SQLite store scales
+further and ranks better. If a single history ever outgrows `grep`, indexing it is an
+additive change — the store is already on disk, in the open.
+
+**Isolation.** Patchbay isolates by path: one topic, one folder, one handoff file, one
+session. Nothing shared unless it is deliberately placed in `SHAREDMEMORY.md` or
+`workspace/memory_system/MAINMEMORY.md`. Hermes isolates one agent's memory from another
+inside its own store, and leans on short-lived sub-agents to keep contexts focused.
+
+**Auditability.** Patchbay's memory is Markdown in the project folder — readable on a
+phone, diffable in git, fixable by editing a line. A database is queryable but not
+reviewable; you cannot skim a schema change the way you skim a diff.
+
+**Learning.** Hermes distils a finished task into a reusable skill and rewrites that skill
+when it finds a better approach. Patchbay has no equivalent, deliberately: improvement is
+scoped to the conversation that earned it, which is the same principle behind removing
+background task delegation. Skills that leak across projects are a feature until the day
+one of them is wrong everywhere at once.
+
+### Which to reach for
+
+**Patchbay fits when** the work is real projects on real repositories, you already pay for
+Claude Code / Codex / Gemini and would rather not pay twice, you want per-topic isolation
+strong enough that five projects can share one chat window without contaminating each
+other, and you want every artefact — memory included — to be a file you can read.
+
+**Hermes fits when** you want one agent that accumulates capability across everything you
+do, you would rather bring your own endpoint (including local or open-weight models) than
+be bound to vendor CLIs, you need a surface patchbay does not speak, or you need the work
+to run somewhere ephemeral — a serverless sandbox that hibernates when idle.
+
+They are not mutually exclusive. Hermes is an agent with a CLI, and patchbay's job is
+running agent CLIs.
+
+*Hermes details here reflect its documentation as of September 2026; it moves quickly.*
 
 ## Disclaimer
 

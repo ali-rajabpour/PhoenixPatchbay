@@ -17,6 +17,7 @@ from phoenix_patchbay.cli.timeout_controller import TimeoutController
 from phoenix_patchbay.cli.types import AgentRequest, AgentResponse
 from phoenix_patchbay.config import NULLISH_TEXT_VALUES, resolve_timeout
 from phoenix_patchbay.errors import CLIError
+from phoenix_patchbay.handoff.literals import protect, restore
 from phoenix_patchbay.handoff.paths import handoff_file
 from phoenix_patchbay.handoff.prompts import (
     NOTHING_TO_RECORD,
@@ -333,8 +334,16 @@ async def _consolidate_externally(
         logger.info("Nothing new in the transcript; handoff left alone")
         return False
 
+    # Lift URLs and non-Latin strings out before the model sees them: it has no
+    # reason to retype a URL and, once in production, dropped a character from
+    # an Arabic slug. Both texts share one table so a string appearing in the
+    # old handoff and the new material keeps a single placeholder.
+    (safe_current, safe_material), literals = protect(
+        orch.handoffs.read(key, folder), material.text
+    )
+
     request = AgentRequest(
-        prompt=external_consolidation_prompt(orch.handoffs.read(key, folder), material.text),
+        prompt=external_consolidation_prompt(safe_current, safe_material),
         chat_id=key.chat_id,
         topic_id=key.topic_id,
         transport=key.transport,
@@ -353,12 +362,22 @@ async def _consolidate_externally(
         logger.warning("External handoff write-up errored chat=%d: %s", key.chat_id, response.result[:200])
         return False
 
-    document = _usable_handoff(response.result)
+    answer, unknown = restore(_strip_fence(response.result), literals)
+    if unknown:
+        # Left visible rather than deleted: a stray [[L9]] gets reported, while
+        # a silently dropped one leaves a sentence that reads fine and lies.
+        logger.warning(
+            "Write-up invented %d placeholder(s) with no literal behind them: %s",
+            len(unknown),
+            ", ".join(sorted(set(unknown))[:5]),
+        )
+
+    document = _usable_handoff(answer)
     if document is None:
         # Either nothing worth recording, or an answer that is not a handoff.
         # The first is settled — advance past material already judged — and the
         # second is not, so leave the watermark and let the next pass retry.
-        if _strip_fence(response.result).strip() == NOTHING_TO_RECORD:
+        if answer.strip() == NOTHING_TO_RECORD:
             write_offset(handoff, material.offset)
         return False
 
@@ -369,9 +388,13 @@ async def _consolidate_externally(
 
 
 def _usable_handoff(result: str) -> str | None:
-    """The returned document, or None when it is not one worth writing."""
-    document = _strip_fence(result)
-    if not document or document.strip() == NOTHING_TO_RECORD:
+    """The returned document, or None when it is not one worth writing.
+
+    Takes text whose fence has already been stripped and whose placeholders
+    have already been restored, so what it judges is what would be written.
+    """
+    document = result.strip()
+    if not document or document == NOTHING_TO_RECORD:
         return None
     if "## Objective" not in document:
         logger.warning("External writer returned something that is not a handoff; ignoring")

@@ -302,7 +302,7 @@ class TestWriterWorkingDirectory:
             process_label=HANDOFF_WRITER_LABEL,
         )
 
-    def _orchestrator(self, tmp_path: Path):  # noqa: ANN202
+    def _orchestrator(self, tmp_path: Path):
         from phoenix_patchbay.orchestrator.core import Orchestrator
 
         orch = MagicMock(spec=Orchestrator)
@@ -328,3 +328,51 @@ class TestWriterWorkingDirectory:
         got = Orchestrator._resolve_request_working_dir(orch, self._request(resume="sess-1"))
 
         assert got == str(tmp_path / "someproject")
+
+
+class TestLiteralProtection:
+    """The writer never sees the strings it used to mistype."""
+
+    @pytest.mark.asyncio
+    async def test_the_prompt_carries_placeholders_not_the_url(
+        self, tmp_path: Path
+    ) -> None:
+        orch = _external_orch(tmp_path, result=HANDOFF_DOC)
+        url = "https://salampolyclinic.om/ar/علاج-تساقط-الشعر-لدى-النساء/"
+        session_dir = orch.paths.claude_home / "projects" / str(tmp_path / "proj").replace("/", "-")
+        (session_dir / "sess-1.jsonl").write_text(
+            json.dumps(
+                {"type": "user", "message": {"content": [{"type": "text", "text": f"check {url}"}]}}
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        await _maybe_consolidate(orch, KEY)
+
+        prompt = orch._cli_service.execute.await_args.args[0].prompt
+        assert url not in prompt, "the model was handed the URL to retype"
+        assert "[[L" in prompt, "no placeholder was substituted in"
+
+    @pytest.mark.asyncio
+    async def test_placeholders_are_expanded_before_the_handoff_is_written(
+        self, tmp_path: Path
+    ) -> None:
+        """The model returns a token; what lands on disk is the real string."""
+        url = "https://salampolyclinic.om/ar/علاج-تساقط-الشعر-لدى-النساء/"
+        doc = HANDOFF_DOC.replace("10% VAT.", "Live at [[L1]].")
+        orch = _external_orch(tmp_path, result=doc)
+        session_dir = orch.paths.claude_home / "projects" / str(tmp_path / "proj").replace("/", "-")
+        (session_dir / "sess-1.jsonl").write_text(
+            json.dumps(
+                {"type": "user", "message": {"content": [{"type": "text", "text": f"check {url}"}]}}
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        await _maybe_consolidate(orch, KEY)
+
+        written = orch.handoffs.write.call_args.args[2]
+        assert url in written
+        assert "[[L1]]" not in written

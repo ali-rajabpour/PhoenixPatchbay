@@ -100,6 +100,12 @@ Sections, in this order: {", ".join(_SECTIONS)}.
 Rules:
 - Output the finished document and nothing else. No preamble, no explanation,
   no code fence around the whole thing.
+- Text like `[[L1]]` is a placeholder standing for an exact string — a URL, or
+  a name in another script — that has been lifted out so it cannot be mistyped.
+  Copy the placeholder through unchanged wherever you would have written the
+  string. Never expand, translate, renumber or invent one: they are substituted
+  back verbatim after you reply, and a placeholder you made up substitutes back
+  to nothing.
 - `## Objective` and `## Current state` must never be empty. They are what a
   successor reads first: one says what this conversation is for, the other says
   where the work stands now, in enough detail to resume without asking. Write

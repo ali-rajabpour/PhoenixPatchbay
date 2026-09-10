@@ -32,6 +32,13 @@ ARCHIVE_DIR_NAME = "handoff-archive"
 
 KNOWLEDGE_FILE_NAME = "knowledge.md"
 
+#: Suffix for the append-only history beside each active handoff. The handoff is
+#: rewritten in place at every consolidation and is lossy by design — it has to
+#: stay small enough to inject on every turn. Detail that is dropped there is
+#: kept here instead, and this file is never injected: it is read only when
+#: something is searched for.
+HISTORY_SUFFIX = ".history.md"
+
 
 def handoff_key(key: SessionKey) -> str:
     """Filename stem identifying one conversation."""
@@ -54,6 +61,11 @@ def handoff_dir(folder: Path | None, paths: PatchbayPaths) -> Path:
 def handoff_file(key: SessionKey, folder: Path | None, paths: PatchbayPaths) -> Path:
     """The active handoff for this conversation."""
     return handoff_dir(folder, paths) / f"{handoff_key(key)}.md"
+
+
+def history_file(key: SessionKey, folder: Path | None, paths: PatchbayPaths) -> Path:
+    """The append-only record of every handoff this conversation has had."""
+    return handoff_dir(folder, paths) / f"{handoff_key(key)}{HISTORY_SUFFIX}"
 
 
 def knowledge_file(folder: Path) -> Path:

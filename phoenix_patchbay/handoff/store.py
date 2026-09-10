@@ -8,6 +8,7 @@ asking it politely to look away.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import shutil
@@ -15,10 +16,20 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from phoenix_patchbay.handoff.guard import assert_ignored, ensure_protected, is_git_repo
-from phoenix_patchbay.handoff.paths import archive_dir, handoff_dir, handoff_file
+from phoenix_patchbay.handoff.paths import archive_dir, handoff_dir, handoff_file, history_file
 from phoenix_patchbay.handoff.prompts import TEMPLATE
 
 _LOG_HEADING = "## Log"
+
+_REVISION_MARKER = "<!-- revision "
+_DIGEST_PATTERN = re.compile(r"sha256:([0-9a-f]+)")
+
+#: How much of the history to read when checking whether the last entry is the
+#: one about to be written. A handoff is a few kilobytes, so this covers the
+#: most recent entries comfortably.
+#: ponytail: tail scan, good to ~64 KiB per revision; index the digests if a
+#: single revision ever outgrows that.
+_HISTORY_TAIL_BYTES = 65_536
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -63,6 +74,22 @@ def _unused(candidate: Path) -> Path:
         if not alternative.exists():
             return alternative
     return candidate.with_name(f"{candidate.stem}-{datetime.now(UTC).timestamp():.0f}{candidate.suffix}")
+
+
+def _last_digest(path: Path) -> str:
+    """The digest of the newest entry in *path*, or "" when there is none."""
+    try:
+        if not path.is_file():
+            return ""
+        with path.open("rb") as handle:
+            size = path.stat().st_size
+            handle.seek(max(0, size - _HISTORY_TAIL_BYTES))
+            tail = handle.read().decode("utf-8", errors="replace")
+    except OSError as exc:
+        logger.warning("Cannot read handoff history %s: %s", path, exc)
+        return ""
+    found = _DIGEST_PATTERN.findall(tail)
+    return found[-1] if found else ""
 
 
 class HandoffStore:
@@ -164,11 +191,66 @@ class HandoffStore:
         _, _, tail = body.partition(_LOG_HEADING)
         return sum(1 for line in tail.splitlines() if line.strip().startswith("-"))
 
+    def append_revision(self, key: SessionKey, folder: Path | None, reason: str) -> bool:
+        """Copy the current handoff into the append-only history beside it.
+
+        Called just before something rewrites the handoff. The handoff itself
+        has to stay small — it is injected on every turn — so consolidation
+        drops detail as a project ages, and by month two the reasoning behind a
+        decision made in week one is a single line. This file is where the
+        dropped detail goes: never injected, never rewritten, only ever grown,
+        so it costs nothing per turn and can be searched when a fact is missing.
+
+        Nothing is deleted here, which is the entire point, so the only failure
+        worth guarding is writing into a repository that would commit it.
+        """
+        body = self.read(key, folder)
+        if not body.strip():
+            return False
+
+        target = history_file(key, folder, self._paths)
+        # Checked *before* writing, not after. The handoff can be deleted and
+        # rewritten when the guard fails; a history cannot — deleting it would
+        # throw away every revision to fix one.
+        guarded = True
+        if folder is not None and is_git_repo(folder):
+            guarded = ensure_protected(folder).ok and assert_ignored(target)
+        if not guarded:
+            logger.error("Handoff history at %s is not ignored by git; not writing", target)
+            return False
+
+        digest = hashlib.sha256(body.encode("utf-8")).hexdigest()[:16]
+        if _last_digest(target) == digest:
+            # A consolidation that failed leaves the handoff untouched and the
+            # trigger still armed, so the next turn tries again. Without this
+            # the history fills with copies of one unchanged document.
+            return False
+
+        stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        entry = f"\n{_REVISION_MARKER}{stamp} {reason} sha256:{digest} -->\n\n{body.rstrip()}\n"
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open("a", encoding="utf-8") as handle:
+                handle.write(entry)
+        except OSError as exc:
+            logger.warning("Cannot append handoff history %s: %s", target, exc)
+            return False
+        return True
+
+    def history_path(self, key: SessionKey, folder: Path | None) -> Path | None:
+        """The history file, when one exists. ``None`` before the first revision."""
+        path = history_file(key, folder, self._paths)
+        return path if path.is_file() else None
+
     def archive(self, key: SessionKey, folder: Path | None) -> Path | None:
         """Move the active handoff out of the folder. ``None`` when absent."""
         source = handoff_file(key, folder, self._paths)
         if not source.is_file():
             return None
+        # The history is not moved with it. It is never injected, so a cleared
+        # topic does not read it by accident, and keeping it means the facts a
+        # month of work produced are still searchable after a fresh start.
+        self.append_revision(key, folder, "archived")
         try:
             body = source.read_text(encoding="utf-8")
             stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S")

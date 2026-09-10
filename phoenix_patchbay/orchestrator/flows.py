@@ -190,7 +190,7 @@ async def _prepare_normal(
     if is_new or orch.reinject.take(key):
         handoff = orch.handoffs.read(key, folder)
         if orch.handoffs.has_content(key, folder):
-            block = injection_block(handoff)
+            block = injection_block(handoff, orch.handoffs.history_path(key, folder))
             append_prompt = f"{append_prompt}\n\n{block}" if append_prompt else block
 
     persona = orch._personas.get(key.storage_key) or ""
@@ -278,6 +278,10 @@ async def consolidate_handoff(orch: Orchestrator, key: SessionKey) -> bool:
     session = await orch._sessions.get_active(key)
     if session is None or not session.session_id:
         return False
+
+    # Before the rewrite, not after: consolidation is where detail is dropped,
+    # and once the file is overwritten the version that held it is gone.
+    orch.handoffs.append_revision(key, orch.bindings.resolve(key.storage_key), "consolidation")
 
     if orch._config.gemini_api_key:
         return await _consolidate_externally(orch, key, session)

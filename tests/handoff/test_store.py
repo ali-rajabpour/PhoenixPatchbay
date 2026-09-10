@@ -184,3 +184,89 @@ def test_logging_leaves_the_sections_above_it_alone(tmp_path: Path) -> None:
     body = store.read(KEY, folder)
     assert "ship the redesign" in body
     assert body.index("ship the redesign") < body.index("- new line")
+
+
+def test_history_keeps_a_revision_the_handoff_no_longer_holds(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    folder = _folder(tmp_path)
+    store.write(KEY, folder, "# Handoff\n\n## Objective\nport the pine strategy\n")
+
+    assert store.append_revision(KEY, folder, "consolidation")
+    store.write(KEY, folder, "# Handoff\n\n## Objective\nsomething else entirely\n")
+
+    history = store.history_path(KEY, folder)
+    assert history is not None
+    body = history.read_text(encoding="utf-8")
+    assert "port the pine strategy" in body
+    assert "port the pine strategy" not in store.read(KEY, folder)
+
+
+def test_history_grows_and_never_replaces(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    folder = _folder(tmp_path)
+
+    for objective in ("first", "second", "third"):
+        store.write(KEY, folder, f"# Handoff\n\n## Objective\n{objective}\n")
+        assert store.append_revision(KEY, folder, "consolidation")
+
+    body = store.history_path(KEY, folder).read_text(encoding="utf-8")
+    assert body.count("<!-- revision ") == 3
+    assert all(word in body for word in ("first", "second", "third"))
+
+
+def test_an_unchanged_handoff_is_not_recorded_twice(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    folder = _folder(tmp_path)
+    store.write(KEY, folder, "# Handoff\n\n## Objective\nship it\n")
+
+    assert store.append_revision(KEY, folder, "consolidation")
+    assert not store.append_revision(KEY, folder, "consolidation")
+
+    assert store.history_path(KEY, folder).read_text(encoding="utf-8").count("<!-- revision ") == 1
+
+
+def test_history_is_separate_per_conversation(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    folder = _folder(tmp_path)
+    store.write(KEY, folder, "# Handoff\n\n## Objective\nmine\n")
+    store.write(OTHER, folder, "# Handoff\n\n## Objective\ntheirs\n")
+
+    store.append_revision(KEY, folder, "consolidation")
+    store.append_revision(OTHER, folder, "consolidation")
+
+    assert "theirs" not in store.history_path(KEY, folder).read_text(encoding="utf-8")
+
+
+def test_there_is_no_history_before_the_first_revision(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    folder = _folder(tmp_path)
+    store.write(KEY, folder, "# Handoff\n\n## Objective\nship it\n")
+
+    assert store.history_path(KEY, folder) is None
+
+
+def test_history_survives_an_archive(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    folder = _folder(tmp_path)
+    store.write(KEY, folder, "# Handoff\n\n## Objective\nwork worth keeping\n")
+
+    store.archive(KEY, folder)
+
+    history = store.history_path(KEY, folder)
+    assert history is not None
+    assert "work worth keeping" in history.read_text(encoding="utf-8")
+
+
+def test_history_is_refused_when_git_would_track_it(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    folder = _folder(tmp_path)
+    subprocess.run(["git", "init", "-q"], cwd=folder, check=True)
+    store.write(KEY, folder, "# Handoff\n\n## Objective\nship it\n")
+
+    # A tracked file is not ignored, whatever the exclude file says — which is
+    # exactly the case the guard exists for.
+    history = folder / "handoffs" / "c100-t110.history.md"
+    history.write_text("", encoding="utf-8")
+    subprocess.run(["git", "add", "-f", str(history)], cwd=folder, check=True)
+
+    assert not store.append_revision(KEY, folder, "consolidation")

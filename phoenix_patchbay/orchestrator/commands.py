@@ -27,6 +27,7 @@ from phoenix_patchbay.orchestrator.selectors.model_selector import (
 )
 from phoenix_patchbay.orchestrator.selectors.models import Button, ButtonGrid
 from phoenix_patchbay.orchestrator.selectors.persona_selector import persona_selector
+from phoenix_patchbay.orchestrator.selectors.plugin_selector import plugin_selector
 from phoenix_patchbay.orchestrator.selectors.session_selector import session_selector_start
 from phoenix_patchbay.orchestrator.selectors.settings_selector import settings_root
 from phoenix_patchbay.orchestrator.selectors.skills_selector import skill_detail, skills_root
@@ -152,6 +153,13 @@ async def cmd_persona(orch: Orchestrator, key: SessionKey, _text: str) -> Orches
     """Handle /persona: choose which agent governs this conversation."""
     logger.info("Persona requested")
     resp = persona_selector(orch, key)
+    return OrchestratorResult(text=resp.text, buttons=resp.buttons)
+
+
+async def cmd_plugins(orch: Orchestrator, key: SessionKey, _text: str) -> OrchestratorResult:
+    """Handle /plugins: narrow which plugins this conversation's runs load."""
+    logger.info("Plugin scope requested")
+    resp = plugin_selector(orch, key)
     return OrchestratorResult(text=resp.text, buttons=resp.buttons)
 
 

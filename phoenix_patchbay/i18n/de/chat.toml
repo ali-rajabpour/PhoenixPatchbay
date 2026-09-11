@@ -615,6 +615,7 @@ panel_ready = "Menü-Leiste installiert. Tippe auf das Raster neben dem Eingabef
 item_files = "📁 Dateien"
 item_folder = "📌 Ordner"
 item_persona = "👤 Persona"
+item_plugins = "🔌 Plugins"
 item_model = "🧠 Modell"
 item_account = "🔑 Konto"
 item_skills = "🧩 Skills"
@@ -680,3 +681,10 @@ err_quota = "⚠️ Der Key ist gültig, aber sein Kontingent ist gerade aufgebr
 err_timeout = "⚠️ Google hat nicht rechtzeitig geantwortet. Nichts gespeichert — sende ihn erneut."
 err_network = "⚠️ Google war von dieser Maschine aus nicht erreichbar. Nichts gespeichert — prüfe das Netzwerk und sende erneut."
 err_upstream = "⚠️ Google hat einen eigenen Fehler gemeldet. Nichts gespeichert — versuch es gleich noch einmal."
+
+[plugins]
+header = "**Plugins für diesen Chat**"
+none_installed = "Für diesen Bot sind keine Plugins installiert."
+persona_line = "Folgt der Persona **{persona}**. Tippen, um nur für diesen Chat abzuweichen."
+no_persona = "Keine Persona gewählt, dies sind die botweiten Standardwerte."
+override_note = "• für diesen Chat gesetzt, überschreibt die Persona. Wirkt ab deiner nächsten Nachricht."

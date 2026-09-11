@@ -615,6 +615,7 @@ panel_ready = "Panneau de menu installé. Touchez la grille à côté du champ d
 item_files = "📁 Fichiers"
 item_folder = "📌 Dossier"
 item_persona = "👤 Persona"
+item_plugins = "🔌 Plugins"
 item_model = "🧠 Modèle"
 item_account = "🔑 Compte"
 item_skills = "🧩 Skills"
@@ -680,3 +681,10 @@ err_quota = "⚠️ La clé est valide, mais son quota est épuisé pour le mome
 err_timeout = "⚠️ Google n'a pas répondu à temps. Rien n'a été enregistré — renvoie-la."
 err_network = "⚠️ Impossible de joindre Google depuis cette machine. Rien n'a été enregistré — vérifie le réseau et renvoie-la."
 err_upstream = "⚠️ Google a renvoyé une erreur de son côté. Rien n'a été enregistré — réessaie dans un instant."
+
+[plugins]
+header = "**Plugins de ce chat**"
+none_installed = "Aucun plugin n'est installé pour ce bot."
+persona_line = "Suit la persona **{persona}**. Touchez pour modifier uniquement ce chat."
+no_persona = "Aucune persona choisie, voici les valeurs par défaut du bot."
+override_note = "• défini pour ce chat, remplace la persona. Effectif dès votre prochain message."

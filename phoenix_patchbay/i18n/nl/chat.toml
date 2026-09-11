@@ -615,6 +615,7 @@ panel_ready = "Menupaneel geïnstalleerd. Tik op het raster naast het berichtvak
 item_files = "📁 Bestanden"
 item_folder = "📌 Map"
 item_persona = "👤 Persona"
+item_plugins = "🔌 Plug-ins"
 item_model = "🧠 Model"
 item_account = "🔑 Account"
 item_skills = "🧩 Skills"
@@ -680,3 +681,10 @@ err_quota = "⚠️ De sleutel is geldig, maar het quotum is nu op. Hij werkt we
 err_timeout = "⚠️ Google antwoordde niet op tijd. Er is niets opgeslagen — stuur hem opnieuw."
 err_network = "⚠️ Google was vanaf deze machine niet bereikbaar. Er is niets opgeslagen — controleer het netwerk en stuur opnieuw."
 err_upstream = "⚠️ Google gaf een eigen foutmelding. Er is niets opgeslagen — probeer het zo nog eens."
+
+[plugins]
+header = "**Plug-ins voor deze chat**"
+none_installed = "Er zijn geen plug-ins geïnstalleerd voor deze bot."
+persona_line = "Volgt de persona **{persona}**. Tik om dit alleen voor deze chat te wijzigen."
+no_persona = "Geen persona gekozen, dit zijn de standaardwaarden van de bot."
+override_note = "• ingesteld voor deze chat, overschrijft de persona. Gaat in bij je volgende bericht."

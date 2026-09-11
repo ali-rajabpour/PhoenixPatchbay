@@ -183,7 +183,8 @@ def _build_help_text() -> str:
         f"{_help_line('handoff')}\n{_help_line('stop')}\n"
         f"{_help_line('interrupt')}\n{_help_line('stop_all')}\n"
         f"{_help_line('model')}\n{_help_line('effort')}\n{_help_line('account')}\n"
-        f"{_help_line('persona')}\n{_help_line('folder')}\n{_help_line('consult')}\n"
+        f"{_help_line('persona')}\n{_help_line('plugins')}\n"
+            f"{_help_line('folder')}\n{_help_line('consult')}\n"
         f"{_help_line('status')}\n{_help_line('memory')}",
         f"{t('help.cat_automation')}\n{_help_line('session')}\n{_help_line('cron')}",
         f"{t('help.cat_multiagent')}\n{_help_line('agent_commands')}",
@@ -512,6 +513,7 @@ class TelegramBot:
             "effort",
             "account",
             "persona",
+            "plugins",
             "folder",
             "consult",
             "skills",
@@ -1531,6 +1533,14 @@ class TelegramBot:
             await self._handle_persona_selector(key, message_id, data, thread_id=thread_id)
             return True
 
+        from phoenix_patchbay.orchestrator.selectors.plugin_selector import (
+            is_plugin_selector_callback,
+        )
+
+        if is_plugin_selector_callback(data):
+            await self._handle_plugin_selector(key, message_id, data)
+            return True
+
         from phoenix_patchbay.orchestrator.selectors.skills_selector import (
             is_skills_selector_callback,
         )
@@ -2095,6 +2105,26 @@ class TelegramBot:
             parse_mode=ParseMode.HTML,
         )
         return True
+
+    async def _handle_plugin_selector(self, key: SessionKey, message_id: int, data: str) -> None:
+        """Toggle one plugin for this conversation and redraw the keyboard."""
+        from phoenix_patchbay.orchestrator.selectors.plugin_selector import (
+            parse_callback,
+            plugin_selector,
+            resolve_choice,
+        )
+
+        index = parse_callback(data)
+        chosen = resolve_choice(index) if index is not None else None
+        if chosen is not None:
+            self._orch.plugin_scope.toggle(
+                key.storage_key,
+                chosen,
+                persona=self._orch.personas.get(key.storage_key) or "",
+            )
+        await edit_selector_response(
+            self._bot, key.chat_id, message_id, plugin_selector(self._orch, key)
+        )
 
     async def _handle_persona_selector(
         self, key: SessionKey, message_id: int, data: str, *, thread_id: int | None = None

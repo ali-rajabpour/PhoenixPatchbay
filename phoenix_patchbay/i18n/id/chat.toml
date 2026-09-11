@@ -614,6 +614,7 @@ panel_ready = "Panel menu terpasang. Ketuk ikon kisi di samping kotak pesan."
 item_files = "📁 Berkas"
 item_folder = "📌 Folder"
 item_persona = "👤 Persona"
+item_plugins = "🔌 Plugin"
 item_model = "🧠 Model"
 item_account = "🔑 Akun"
 item_skills = "🧩 Skills"
@@ -679,3 +680,10 @@ err_quota = "⚠️ Kuncinya valid, tapi kuotanya sedang habis. Akan berfungsi l
 err_timeout = "⚠️ Google tidak menjawab tepat waktu. Tidak ada yang disimpan — kirim lagi."
 err_network = "⚠️ Tidak bisa menghubungi Google dari mesin ini. Tidak ada yang disimpan — periksa jaringan lalu kirim lagi."
 err_upstream = "⚠️ Google mengembalikan galat dari sisinya. Tidak ada yang disimpan — coba sebentar lagi."
+
+[plugins]
+header = "**Plugin untuk obrolan ini**"
+none_installed = "Tidak ada plugin yang terpasang untuk bot ini."
+persona_line = "Mengikuti persona **{persona}**. Ketuk untuk mengubah khusus obrolan ini."
+no_persona = "Belum ada persona dipilih, ini setelan bawaan bot."
+override_note = "• disetel untuk obrolan ini, menimpa persona. Berlaku pada pesan Anda berikutnya."

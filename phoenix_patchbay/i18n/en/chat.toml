@@ -505,6 +505,13 @@ selected = "Persona: **{persona}**"
 switched_notice = "Persona active: **{new}**. This conversation previously ran as {old}; earlier turns in the history were produced under that persona and do not describe the current one."
 active_notice = "Persona active: **{persona}**. This statement is current for this turn; follow this persona's remit and working style."
 
+[plugins]
+header = "**Plugins for this chat**"
+none_installed = "No plugins are installed for this bot."
+persona_line = "Following the **{persona}** persona. Tap to override for this chat only."
+no_persona = "No persona chosen, so these are the bot-wide defaults."
+override_note = "• set for this chat, overriding the persona. Takes effect on your next message."
+
 [upload]
 btn_upload = "⬆️ Upload here"
 btn_files = "📄 Send files"
@@ -616,6 +623,7 @@ panel_ready = "Menu panel installed. Tap the grid beside the message box to reac
 item_files = "📁 Files"
 item_folder = "📌 Folder"
 item_persona = "👤 Persona"
+item_plugins = "🔌 Plugins"
 item_model = "🧠 Model"
 item_account = "🔑 Account"
 item_skills = "🧩 Skills"

@@ -960,3 +960,48 @@ class TestAppendSystemPromptFile:
         assert captured["arg_path"].endswith(".md")
         assert captured["content"] == _BIG_APPEND
         assert (fake_home / "tmp").is_dir()
+
+
+# ---------------------------------------------------------------------------
+# --settings (plugin scoping)
+# ---------------------------------------------------------------------------
+
+
+def test_no_settings_flag_when_nothing_narrows_the_plugin_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli = _make_cli(monkeypatch)
+    assert "--settings" not in cli._build_command("hi")
+
+
+def test_settings_document_is_written_and_passed(monkeypatch: pytest.MonkeyPatch) -> None:
+    document = json.dumps({"enabledPlugins": {"caveman@caveman": False}})
+    cli = _make_cli(monkeypatch, settings_json=document)
+    path = cli._create_settings_path()
+    assert path is not None
+    try:
+        assert json.loads(Path(path).read_text(encoding="utf-8")) == json.loads(document)
+        cmd = cli._build_command("hi", settings_file=path)
+        assert cmd[cmd.index("--settings") + 1] == path
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+
+def test_the_settings_file_is_removed_after_a_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    # It holds the whole settings document, permissions included, so it must not
+    # be left behind in the shared tmp directory.
+    cli = _make_cli(monkeypatch, settings_json='{"enabledPlugins": {}}')
+    written: list[str] = []
+    real = cli._create_settings_path
+
+    def _capture() -> str | None:
+        path = real()
+        if path:
+            written.append(path)
+        return path
+
+    monkeypatch.setattr(cli, "_create_settings_path", _capture)
+    with patch(_EXEC_PATH, new=AsyncMock(return_value=_fake_process(b'{"result": "ok"}'))):
+        asyncio.run(cli.send("hi"))
+    assert written
+    assert not Path(written[0]).exists()

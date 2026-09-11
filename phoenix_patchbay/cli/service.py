@@ -160,6 +160,15 @@ class CLIService:
         self._process_registry = process_registry
         self._working_dir_resolver: Callable[[AgentRequest], str | None] | None = None
         self._persona_resolver: Callable[[AgentRequest], str] | None = None
+        self._settings_resolver: Callable[[AgentRequest], str] | None = None
+
+    def set_settings_resolver(self, resolver: Callable[[AgentRequest], str] | None) -> None:
+        """Install the callback that decides this request's ``--settings`` document.
+
+        Returns an empty string when nothing narrows the CLI's own settings,
+        which is the usual answer.
+        """
+        self._settings_resolver = resolver
 
     def set_persona_resolver(self, resolver: Callable[[AgentRequest], str] | None) -> None:
         """Install the callback that decides which persona a request runs under.
@@ -470,6 +479,7 @@ class CLIService:
                 transport=request.transport,
                 process_label=request.process_label,
                 persona=self._persona_resolver(request) if self._persona_resolver else "",
+                settings_json=self._settings_resolver(request) if self._settings_resolver else "",
                 cli_parameters=self._config.cli_parameters_for_provider(provider),
                 agent_name=self._config.agent_name,
                 interagent_port=self._config.interagent_port,

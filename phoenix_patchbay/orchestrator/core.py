@@ -44,6 +44,7 @@ from phoenix_patchbay.orchestrator.commands import (
     cmd_memory,
     cmd_model,
     cmd_persona,
+    cmd_plugins,
     cmd_sessions,
     cmd_settings,
     cmd_skills,
@@ -68,6 +69,7 @@ from phoenix_patchbay.orchestrator.memory_flush import MemoryFlusher
 from phoenix_patchbay.orchestrator.observers import ObserverManager
 from phoenix_patchbay.orchestrator.providers import ProviderManager
 from phoenix_patchbay.orchestrator.registry import CommandRegistry, OrchestratorResult
+from phoenix_patchbay.personas.plugin_scope import PluginScopeStore, derive_settings
 from phoenix_patchbay.personas.store import PersonaStore
 from phoenix_patchbay.security import detect_suspicious_patterns
 from phoenix_patchbay.session import SessionKey, SessionManager
@@ -182,11 +184,13 @@ class Orchestrator:
             process_registry=self._process_registry,
         )
         self._personas = PersonaStore(paths.patchbay_home / "personas.json")
+        self._plugin_scope = PluginScopeStore(paths.patchbay_home / "plugin_scope.json")
         self._bindings = BindingStore(paths.patchbay_home / "topic_bindings.json")
         self._handoffs = HandoffStore(paths)
         self._reinject = ReinjectFlags()
         self._cli_service.set_working_dir_resolver(self._resolve_request_working_dir)
         self._cli_service.set_persona_resolver(self._resolve_request_persona)
+        self._cli_service.set_settings_resolver(self._resolve_request_settings)
         self._cron_manager = CronManager(jobs_path=paths.cron_jobs_path)
         self._webhook_manager = WebhookManager(hooks_path=paths.webhooks_path)
         self._observers = ObserverManager(config, paths)
@@ -289,6 +293,24 @@ class Orchestrator:
         """
         key = SessionKey.for_transport(request.transport, request.chat_id, request.topic_id)
         return self._personas.get(key.storage_key) or ""
+
+    def _resolve_request_settings(self, request: AgentRequest) -> str:
+        """The ``--settings`` document narrowing this run's plugins, or "".
+
+        Claude Code fixes its plugin set at process start, and every turn here is
+        a new process, so a change from ``/plugins`` applies to the next message
+        with nothing to restart.
+        """
+        key = SessionKey.for_transport(request.transport, request.chat_id, request.topic_id)
+        return derive_settings(
+            self._personas.get(key.storage_key) or "",
+            self._plugin_scope.get(key.storage_key),
+        )
+
+    @property
+    def plugin_scope(self) -> PluginScopeStore:
+        """Per-conversation plugin overrides."""
+        return self._plugin_scope
 
     @property
     def personas(self) -> PersonaStore:
@@ -523,6 +545,7 @@ class Orchestrator:
         reg.register_async("/account ", cmd_account)
         reg.register_async("/memory", cmd_memory)
         reg.register_async("/persona", cmd_persona)
+        reg.register_async("/plugins", cmd_plugins)
         reg.register_async("/folder", cmd_folder)
         reg.register_async("/consult", cmd_consult)
         reg.register_async("/settings", cmd_settings)

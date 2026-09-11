@@ -59,6 +59,7 @@ MENU_ITEMS: tuple[MenuItem, ...] = (
     MenuItem("files", "/files"),
     MenuItem("folder", "/folder"),
     MenuItem("persona", "/persona"),
+    MenuItem("plugins", "/plugins"),
     MenuItem("model", "/model"),
     MenuItem("account", "/account"),
     MenuItem("skills", "/skills"),

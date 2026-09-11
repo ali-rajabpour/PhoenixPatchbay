@@ -615,6 +615,7 @@ panel_ready = "Painel de menu instalado. Toque na grelha ao lado da caixa de men
 item_files = "📁 Ficheiros"
 item_folder = "📌 Pasta"
 item_persona = "👤 Persona"
+item_plugins = "🔌 Plugins"
 item_model = "🧠 Modelo"
 item_account = "🔑 Conta"
 item_skills = "🧩 Skills"
@@ -680,3 +681,10 @@ err_quota = "⚠️ A chave é válida, mas a quota está esgotada neste momento
 err_timeout = "⚠️ A Google não respondeu a tempo. Nada foi guardado — envia outra vez."
 err_network = "⚠️ Não foi possível contactar a Google a partir desta máquina. Nada foi guardado — verifica a rede e envia outra vez."
 err_upstream = "⚠️ A Google devolveu um erro próprio. Nada foi guardado — tenta daqui a pouco."
+
+[plugins]
+header = "**Plugins deste chat**"
+none_installed = "Nenhum plugin está instalado para este bot."
+persona_line = "Segue a persona **{persona}**. Toque para alterar apenas neste chat."
+no_persona = "Nenhuma persona escolhida, estes são os padrões do bot."
+override_note = "• definido para este chat, substitui a persona. Vale a partir da sua próxima mensagem."

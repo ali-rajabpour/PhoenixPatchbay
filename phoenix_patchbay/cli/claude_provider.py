@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 # is written to a temp file and passed via ``--append-system-prompt-file``.
 _MAX_INLINE_APPEND_BYTES = 96 * 1024
 _APPEND_PREFIX = "patchbay_append_"
+_SETTINGS_PREFIX = "patchbay_settings_"
 
 
 class ClaudeCodeCLI(BaseCLI):
@@ -72,6 +73,7 @@ class ClaudeCodeCLI(BaseCLI):
         continue_session: bool = False,
         *,
         append_prompt_file: str | None = None,
+        settings_file: str | None = None,
     ) -> list[str]:
         cfg = self._config
         cmd = [self._cli, "-p", "--output-format", "json"]
@@ -81,6 +83,10 @@ class ClaudeCodeCLI(BaseCLI):
         # A persona is a Claude Code agent; --agent is what actually loads its
         # definition, rather than merely describing it in the prompt.
         add_cli_opt(cmd, "--agent", cfg.persona or None)
+        # Narrows the plugin set for this run. The document is the installation's
+        # own settings.json with enabledPlugins replaced, so the permission
+        # allowlist and the hooks it carries are preserved.
+        add_cli_opt(cmd, "--settings", settings_file)
         if cfg.reasoning_effort and cfg.reasoning_effort != "default":
             cmd += ["--effort", cfg.reasoning_effort]
         add_cli_opt(cmd, "--system-prompt", cfg.system_prompt)
@@ -126,12 +132,14 @@ class ClaudeCodeCLI(BaseCLI):
     ) -> CLIResponse:
         """Send a prompt and return the final result."""
         append_file = self._create_append_prompt_path()
+        settings_file = self._create_settings_path()
         try:
             cmd = self._build_command(
                 prompt,
                 resume_session,
                 continue_session,
                 append_prompt_file=self._append_arg_path(append_file),
+                settings_file=self._append_arg_path(settings_file),
             )
             exec_cmd, use_cwd = docker_wrap(cmd, self._config, interactive=_IS_WINDOWS)
             _log_cmd(exec_cmd)
@@ -143,6 +151,7 @@ class ClaudeCodeCLI(BaseCLI):
             )
         finally:
             await _cleanup_file(append_file)
+            await _cleanup_file(settings_file)
 
     def _build_command_streaming(
         self,
@@ -151,10 +160,15 @@ class ClaudeCodeCLI(BaseCLI):
         continue_session: bool = False,
         *,
         append_prompt_file: str | None = None,
+        settings_file: str | None = None,
     ) -> list[str]:
         """Build CLI command with --output-format stream-json."""
         cmd = self._build_command(
-            prompt, resume_session, continue_session, append_prompt_file=append_prompt_file
+            prompt,
+            resume_session,
+            continue_session,
+            append_prompt_file=append_prompt_file,
+            settings_file=settings_file,
         )
         try:
             idx = cmd.index("json")
@@ -175,12 +189,14 @@ class ClaudeCodeCLI(BaseCLI):
     ) -> AsyncGenerator[StreamEvent, None]:
         """Send a prompt and yield stream events as they arrive."""
         append_file = self._create_append_prompt_path()
+        settings_file = self._create_settings_path()
         try:
             cmd = self._build_command_streaming(
                 prompt,
                 resume_session,
                 continue_session,
                 append_prompt_file=self._append_arg_path(append_file),
+                settings_file=self._append_arg_path(settings_file),
             )
             exec_cmd, use_cwd = docker_wrap(cmd, self._config, interactive=_IS_WINDOWS)
             _log_cmd(exec_cmd, streaming=True)
@@ -194,6 +210,7 @@ class ClaudeCodeCLI(BaseCLI):
                 yield event
         finally:
             await _cleanup_file(append_file)
+            await _cleanup_file(settings_file)
 
     def _create_append_prompt_path(self) -> str | None:
         """Write an oversized ``--append-system-prompt`` to a temp file.
@@ -210,8 +227,21 @@ class ClaudeCodeCLI(BaseCLI):
         directory = docker_prompt_tmp_dir() if self._config.docker_container else None
         return create_system_prompt_file(value, directory=directory, prefix=_APPEND_PREFIX)
 
+    def _create_settings_path(self) -> str | None:
+        """Write this run's ``--settings`` document to a temp file.
+
+        Returns the host path, or ``None`` when no scoping applies — the common
+        case, where the CLI is left to read its own settings. The caller must
+        clean up.
+        """
+        value = self._config.settings_json
+        if not value:
+            return None
+        directory = docker_prompt_tmp_dir() if self._config.docker_container else None
+        return create_system_prompt_file(value, directory=directory, prefix=_SETTINGS_PREFIX)
+
     def _append_arg_path(self, host_path: str | None) -> str | None:
-        """Resolve the ``--append-system-prompt-file`` value for the run target.
+        """Resolve a temp-file argument (prompt or settings) for the run target.
 
         In Docker mode the temp file is read through the ``/patchbay`` mount, so
         the container-side path is passed to the CLI instead of the host path.
@@ -220,7 +250,7 @@ class ClaudeCodeCLI(BaseCLI):
             return host_path
         container_path = host_path_to_container(host_path)
         if container_path is None:
-            msg = f"append-system-prompt temp file is outside the Docker mount: {host_path}"
+            msg = f"CLI temp file is outside the Docker mount: {host_path}"
             raise RuntimeError(msg)
         return container_path
 

@@ -1,0 +1,9 @@
+Correction: this message says the handoff "is injected on every turn". It is
+not. The handoff block is sent at session start and after a compaction only
+(flows.py, `is_new or reinject.take(key)`), and the appended system prompt is
+set per CLI call, so nothing carries it between those boundaries.
+
+The history itself works as described. What was wrong was the reason given for
+keeping it small, and the implication that a pointer sent inside the handoff
+block would still be in front of the model on a later turn. Fixed in 8837787,
+which sends the pointer on every turn and corrects the README.

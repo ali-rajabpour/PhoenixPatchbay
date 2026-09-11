@@ -23,6 +23,7 @@ from phoenix_patchbay.handoff.prompts import (
     NOTHING_TO_RECORD,
     consolidation_prompt,
     external_consolidation_prompt,
+    history_pointer,
     injection_block,
 )
 from phoenix_patchbay.handoff.transcript import (
@@ -117,6 +118,24 @@ def _make_timeout_controller(orch: Orchestrator, kind: str) -> TimeoutController
     )
 
 
+def _handoff_prompt(orch: Orchestrator, key: SessionKey, *, is_new: bool) -> str:
+    """The handoff at a boundary, and the history pointer on every turn.
+
+    Two cadences on purpose. The handoff is thousands of tokens and only needed
+    when working context has just been lost — a new session or a compaction.
+    The pointer is one line, and a detail the handoff dropped can go missing on
+    any turn, so it is sent on all of them.
+    """
+    folder = orch.bindings.resolve(key.storage_key)
+    parts: list[str] = []
+    if (is_new or orch.reinject.take(key)) and orch.handoffs.has_content(key, folder):
+        parts.append(injection_block(orch.handoffs.read(key, folder)))
+    history = orch.handoffs.history_path(key, folder)
+    if history is not None:
+        parts.append(history_pointer(history))
+    return "\n\n".join(parts)
+
+
 async def _prepare_normal(
     orch: Orchestrator,
     key: SessionKey,
@@ -187,11 +206,9 @@ async def _prepare_normal(
     orch.handoffs.ensure_exists(key, folder)
     _log_turn(orch, key, text)
 
-    if is_new or orch.reinject.take(key):
-        handoff = orch.handoffs.read(key, folder)
-        if orch.handoffs.has_content(key, folder):
-            block = injection_block(handoff, orch.handoffs.history_path(key, folder))
-            append_prompt = f"{append_prompt}\n\n{block}" if append_prompt else block
+    handoff_prompt = _handoff_prompt(orch, key, is_new=is_new)
+    if handoff_prompt:
+        append_prompt = f"{append_prompt}\n\n{handoff_prompt}" if append_prompt else handoff_prompt
 
     persona = orch._personas.get(key.storage_key) or ""
     if persona:

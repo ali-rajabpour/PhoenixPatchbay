@@ -8,6 +8,7 @@ from phoenix_patchbay.handoff.prompts import (
     TEMPLATE,
     consolidation_prompt,
     external_consolidation_prompt,
+    history_pointer,
     injection_block,
 )
 
@@ -80,3 +81,17 @@ def test_the_external_prompt_carries_the_material() -> None:
     body = external_consolidation_prompt("EXISTING HANDOFF", "WHAT HAPPENED")
     assert "EXISTING HANDOFF" in body
     assert "WHAT HAPPENED" in body
+
+
+def test_history_pointer_names_the_file_and_never_carries_its_contents() -> None:
+    history = Path("/home/patchbay/IT/proj/handoffs/c1-t2.history.md")
+
+    line = history_pointer(history)
+
+    assert str(history) in line
+    assert "search" in line.lower()
+    assert "\n" not in line
+
+
+def test_the_handoff_block_no_longer_repeats_the_pointer() -> None:
+    assert ".history.md" not in injection_block("## Objective\nship it\n")

@@ -1008,3 +1008,28 @@ async def test_existing_topic_effort_fixed_when_global_default_changes(
     assert se.reasoning_effort == "low"
     assert sf is not None
     assert sf.reasoning_effort == "high"
+
+
+async def test_history_pointer_rides_on_an_ordinary_resumed_turn(orch: Orchestrator) -> None:
+    # The handoff block is only sent at session start and after a compaction,
+    # and the appended prompt is set per call — so the pointer to the history
+    # has to be re-sent on every turn or it is gone by the next one.
+    captured: list[object] = []
+
+    async def mock_execute(req: object) -> AgentResponse:
+        captured.append(req)
+        return _mock_response()
+
+    object.__setattr__(orch._cli_service, "execute", mock_execute)
+    key = SessionKey(chat_id=1)
+    await normal(orch, key, "Hello")  # new session
+    orch.handoffs.write(key, None, "# Handoff\n\n## Objective\nport pine\n")
+    orch.handoffs.append_revision(key, None, "consolidation")
+
+    await normal(orch, key, "Follow up")  # resumed, not a boundary
+
+    prompt = captured[1].append_system_prompt  # type: ignore[attr-defined]
+    assert prompt is not None
+    assert "c1-general.history.md" in prompt
+    assert "Handoff — prior work" not in prompt
+    assert "port pine" not in prompt

@@ -1178,7 +1178,7 @@ git commit -m "Remove memory_reflection; route durable facts by scope"
 - [ ] **Step 2: Apply on the box** with a backup beside the original.
 - [ ] **Step 3: Pin, build, verify the image carries `phoenix_patchbay.handoff`, restart.**
 - [ ] **Step 4: Live check** — compact a real topic; confirm the new session knows what it was doing; confirm `git status` in `wp-website` shows nothing new.
-- [ ] **Step 5: Update `telai/HANDOFF.md`** — new commands, the handoff tiers, and the migration.
+- [ ] **Step 5: Update `docs/HANDOFF.md`** — new commands, the handoff tiers, and the migration.
 
 ---
 

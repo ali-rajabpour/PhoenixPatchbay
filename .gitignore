@@ -64,3 +64,34 @@ graphify-out/
 
 # graphify build products: a derived map of the repo, rebuilt on demand
 graphify-out/
+
+# Operational memory and host scripts — NEVER commit, this repo is public.
+#
+# These record the live deployment: the VPS address, Docker subnets, volume
+# names, the Telegram group ID, credential-rotation status, and scripts that
+# configure access to all of it. Publishing any of it is not recoverable —
+# history and clones keep it after a delete. Kept on disk, out of git.
+/ops/
+/docs/HANDOFF.md
+/docs/session-notes/
+/docs/research-landscape.md
+/docs/SPEC-topic-binding.md
+
+# Same class of file under any name or location, so a copy, a rename or a new
+# project folder is ignored by default rather than by someone remembering.
+HANDOFF*.md
+handoff.md
+handoff.history.md
+handoff.offset
+**/handoffs/
+**/.claude/handoffs/
+session-notes/
+session-20*.md
+*.session.md
+deploy/seed/secrets/
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+!deploy/.env.example

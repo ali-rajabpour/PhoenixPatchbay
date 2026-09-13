@@ -650,6 +650,19 @@ def _detect_posix_timezone() -> ZoneInfo | None:
         return None
 
 
+# Pinned model versions, offered alongside the moving aliases. An alias always
+# resolves to the newest model in its family, which is usually what you want and
+# occasionally is not: an older Opus can be better behaved on a task the current
+# one overthinks, and reproducing a bug means running the model that produced it.
+#
+# Full IDs only. The short spellings the CLI shows in its own picker ("opus48")
+# are display labels and are rejected as `claude-code:unrecognized_model`.
+CLAUDE_PINNED_MODELS: tuple[str, ...] = (
+    "claude-opus-4-8",
+    "claude-opus-4-6",
+    "claude-sonnet-4-5",
+)
+
 # `[1m]` suffix unlocks Claude Code's 1M-context beta on sonnet + opus.
 # The Claude CLI strips the suffix before dispatch and sets the beta header
 # internally (see https://code.claude.com/docs/en/model-config). Haiku has
@@ -663,6 +676,7 @@ CLAUDE_MODELS_ORDERED: tuple[str, ...] = (
     # Claude Code >= 2.1.172 resolves the "fable" alias to the latest Fable
     # model (same auto-tracking as the opus/sonnet aliases).
     "fable",
+    *CLAUDE_PINNED_MODELS,
 )
 CLAUDE_MODELS: frozenset[str] = frozenset(CLAUDE_MODELS_ORDERED)
 

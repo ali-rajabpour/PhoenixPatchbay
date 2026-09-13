@@ -104,6 +104,21 @@ def _build_switch_summary(ctx: _SwitchSummaryContext) -> str:
     return "\n".join(parts)
 
 
+def _claude_model_label(model_id: str) -> str:
+    """Button text for a Claude model.
+
+    Aliases keep their own short name (``OPUS``, ``SONNET[1M]``). A pinned full
+    ID is shown the way the CLI's own picker shows it — ``claude-opus-4-8`` as
+    ``OPUS 4.8`` — because the raw ID is long enough to wrap a Telegram button.
+    """
+    if not model_id.startswith("claude-"):
+        return model_id.upper()
+    family, _, version = model_id[len("claude-") :].partition("-")
+    if not version:
+        return family.upper()
+    return f"{family.upper()} {version.replace('-', '.')}"
+
+
 def _supported_efforts(orch: Orchestrator, model_id: str) -> tuple[str, ...]:
     """Return the reasoning-effort levels supported by *model_id*'s provider.
 
@@ -572,7 +587,8 @@ async def _build_model_step(
     if provider in ("claude", "grok"):
         if provider == "claude":
             buttons = [
-                Button(text=m.upper(), callback_data=f"ms:m:{m}") for m in CLAUDE_MODELS_ORDERED
+                Button(text=_claude_model_label(m), callback_data=f"ms:m:{m}")
+                for m in CLAUDE_MODELS_ORDERED
             ]
             prompt = t("model.select_claude")
         else:

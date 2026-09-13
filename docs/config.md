@@ -706,6 +706,7 @@ Restart classification is computed from `AgentConfig` top-level schema fields.
 `ModelRegistry` (`phoenix_patchbay/config.py`):
 
 - Claude models are hardcoded: `haiku`, `sonnet`, `sonnet[1m]`, `opus`, `opus[1m]`, and `fable` (Claude CLI strips the `[1m]` suffix and sets the 1M-context beta header internally).
+- Pinned versions are offered alongside those aliases: `claude-opus-4-8`, `claude-opus-4-6`, `claude-sonnet-4-5`. An alias always resolves to the newest model in its family; pin a version when an older model suits the task better or when reproducing a bug on the model that produced it. Full IDs only — the short spellings the CLI shows in its own picker (`opus48`) are display labels and are rejected as `unrecognized_model`. `/model` shows them as `OPUS 4.8`.
 - Gemini aliases are hardcoded: `auto`, `pro`, `flash`, `flash-lite`.
 - Runtime Gemini models are discovered from local Gemini CLI files at startup.
 - Antigravity has a built-in `antigravity-default` model and runtime model display names discovered from `agy models`.

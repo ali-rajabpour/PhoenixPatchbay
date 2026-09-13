@@ -13,12 +13,16 @@ from phoenix_patchbay.cli.param_resolver import (
     resolve_cli_config,
 )
 from phoenix_patchbay.config import (
+    CLAUDE_MODELS_ORDERED,
+    CLAUDE_PINNED_MODELS,
     AgentConfig,
     CLIParametersConfig,
+    ModelRegistry,
     reset_gemini_models,
     set_gemini_models,
 )
 from phoenix_patchbay.errors import PatchbayError
+from phoenix_patchbay.orchestrator.selectors.model_selector import _claude_model_label
 
 
 @pytest.fixture
@@ -322,3 +326,26 @@ def test_resolve_missing_bucket_falls_back_to_empty(
 
     assert result.provider == "claude"
     assert result.cli_parameters == []
+
+
+def test_resolve_pinned_claude_model(
+    base_config: AgentConfig, codex_cache: CodexModelCache
+) -> None:
+    """A pinned full model ID passes validation and reaches the CLI unchanged.
+
+    The CLI takes full IDs but rejects the short spellings from its own picker,
+    so the pinned entries must survive the resolver exactly as written.
+    """
+    for model in CLAUDE_PINNED_MODELS:
+        result = resolve_cli_config(
+            base_config, codex_cache, task_overrides=RunOverrides(model=model)
+        )
+        assert result.model == model
+        assert ModelRegistry.provider_for(model) == "claude"
+
+
+def test_pinned_claude_models_are_labelled_for_buttons() -> None:
+    """Pinned IDs get a short button label; aliases keep their own name."""
+    assert _claude_model_label("claude-opus-4-8") == "OPUS 4.8"
+    assert _claude_model_label("sonnet[1m]") == "SONNET[1M]"
+    assert all(len(f"ms:m:{m}") <= 64 for m in CLAUDE_MODELS_ORDERED)

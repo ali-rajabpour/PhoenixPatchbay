@@ -511,7 +511,7 @@ This is **hot-reloadable** — change the language without restarting the bot.
 
 | Command | Description |
 |---|---|
-| `/model` | Interactive model/provider selector |
+| `/model` | Interactive model/provider selector — Claude aliases (`opus`, `sonnet`, `[1m]` for the 1M-context beta) plus pinned versions such as `OPUS 4.8` |
 | `/effort` | Reasoning effort for the current chat/topic (Claude & Codex) |
 | `/account` | Switch the Claude credential store (see `claude_accounts` in docs/config.md) |
 | `/persona` | Choose which Claude Code agent governs this chat/topic |

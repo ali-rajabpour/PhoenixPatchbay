@@ -51,6 +51,9 @@ class TestBuildProviderInfo:
         assert info[0]["name"] == "Claude Code"
         assert info[0]["color"] == "#F97316"
         assert sorted(info[0]["models"]) == [
+            "claude-opus-4-6",
+            "claude-opus-4-8",
+            "claude-sonnet-4-5",
             "fable",
             "haiku",
             "opus",

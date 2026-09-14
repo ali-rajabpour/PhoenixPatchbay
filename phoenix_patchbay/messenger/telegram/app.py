@@ -88,6 +88,7 @@ from phoenix_patchbay.messenger.telegram.menu import (
     build_menu,
     build_toggle_panel,
     is_menu_callback,
+    nav_row,
     state_subtitle,
 )
 from phoenix_patchbay.messenger.telegram.menu import (
@@ -254,6 +255,9 @@ HANDOFF_RETRY = "hor"
 #: Commands that consolidate the handoff first, which is a full model turn.
 #: Without an acknowledgement the screen does not change and the button gets
 #: pressed repeatedly, queueing several of them.
+#: Telegram's cap on one message's text, after HTML conversion.
+_TELEGRAM_TEXT_LIMIT = 4096
+
 _SLOW_COMMANDS = {
     "/compact": "handoff.compacting",
     "/clear": "handoff.clearing",
@@ -1046,7 +1050,8 @@ class TelegramBot:
         # a menu button producing a chat reply, with nothing to show it failed.
         transport = self._transport_menu_actions()
         if command in transport:
-            await transport[command](key, thread_id)
+            text, markup = await transport[command](key)
+            await self._show_in_menu(key, message_id, text, markup, thread_id)
             return
 
         # Commands that run a model turn before answering leave the user
@@ -1066,29 +1071,59 @@ class TelegramBot:
         result = await self._orch.handle_message(key, command)
         if result is None or not result.text:
             return
+        markup = button_grid_to_markup(result.buttons) if result.buttons else None
+        await self._show_in_menu(key, message_id, result.text, markup, thread_id)
+
+    async def _show_in_menu(
+        self,
+        key: SessionKey,
+        message_id: int,
+        text: str,
+        markup: InlineKeyboardMarkup | None,
+        thread_id: int | None,
+    ) -> None:
+        """Turn the menu message into the chosen screen, instead of sending another.
+
+        A new message per tap left a trail of menus, each needing its own Close.
+        A screen without buttons still gets Menu and Close so it is not a dead
+        end. Only a screen too long for one message is sent as new messages.
+        """
+        html = markdown_to_telegram_html(text)
+        if len(html) <= _TELEGRAM_TEXT_LIMIT:
+            try:
+                await self._bot.edit_message_text(
+                    text=html,
+                    chat_id=key.chat_id,
+                    message_id=message_id,
+                    reply_markup=markup or InlineKeyboardMarkup(inline_keyboard=[nav_row()]),
+                    parse_mode=ParseMode.HTML,
+                )
+            except TelegramBadRequest as exc:
+                # "message is not modified" means it is already showing.
+                if "not modified" in str(exc):
+                    return
+                logger.debug("Menu edit failed, sending instead: %s", exc)
+            else:
+                return
         await send_rich(
-            self._bot,
-            key.chat_id,
-            result.text,
-            SendRichOpts(
-                reply_markup=button_grid_to_markup(result.buttons) if result.buttons else None,
-                thread_id=thread_id,
-            ),
+            self._bot, key.chat_id, text, SendRichOpts(reply_markup=markup, thread_id=thread_id)
         )
 
     def _transport_menu_actions(self):  # noqa: ANN202
         """Menu entries handled here rather than by the orchestrator registry."""
         return {
-            "/files": self._send_files_view,
-            "/help": self._send_help_view,
+            "/files": self._files_view,
+            "/help": self._help_view,
         }
 
-    async def _send_help_view(self, key: SessionKey, thread_id: int | None) -> None:
-        await send_rich(
-            self._bot,
-            key.chat_id,
-            _build_help_text(),
-            SendRichOpts(thread_id=thread_id),
+    async def _help_view(self, _key: SessionKey) -> tuple[str, InlineKeyboardMarkup | None]:
+        return _build_help_text(), None
+
+    async def _files_view(self, key: SessionKey) -> tuple[str, InlineKeyboardMarkup | None]:
+        return await file_browser_start(
+            self._orch.paths,
+            self._roots_for(key),
+            self._orch.bindings.resolve(key.storage_key),
         )
 
     def _is_consult(self, key: SessionKey) -> bool:
@@ -1120,11 +1155,7 @@ class TelegramBot:
         return dict(self._config.project_roots)
 
     async def _send_files_view(self, key: SessionKey, thread_id: int | None) -> None:
-        text, keyboard = await file_browser_start(
-            self._orch.paths,
-            self._roots_for(key),
-            self._orch.bindings.resolve(key.storage_key),
-        )
+        text, keyboard = await self._files_view(key)
         await send_rich(
             self._bot,
             key.chat_id,

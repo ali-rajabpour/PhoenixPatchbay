@@ -606,25 +606,8 @@ async def _build_model_step(  # noqa: PLR0911
         )
         return SelectorResponse(text=f"{header}\n\n{prompt}", buttons=keyboard)
 
-    if provider == ninerouter.PROVIDER:
-        router_models = await asyncio.to_thread(ninerouter.list_models)
-        # Telegram caps callback_data at 64 bytes, and ':' would break the callback
-        # split; such IDs still work via `/model 9router/<id>`.
-        router_models = [
-            m for m in router_models if ":" not in m and len(f"ms:m:{m}".encode()) <= 64
-        ]
-        router_rows = [
-            [Button(text=m.removeprefix(ninerouter.MODEL_PREFIX), callback_data=f"ms:m:{m}")]
-            for m in router_models
-        ]
-        router_rows.append([Button(text=t("model.btn_back"), callback_data="ms:b:root")])
-        text = (
-            "Select 9router model:"
-            if router_models
-            else "No 9router models found. Check NINEROUTER_BASE_URL / NINEROUTER_API_KEY, "
-            "or list them in NINEROUTER_MODELS."
-        )
-        return SelectorResponse(text=f"{header}\n\n{text}", buttons=ButtonGrid(rows=router_rows))
+    if provider.startswith(ninerouter.PROVIDER):
+        return await _build_ninerouter_step(provider, header)
 
     if provider == "gemini":
         gemini_models = _gemini_models_for_selector()
@@ -669,6 +652,64 @@ async def _build_model_step(  # noqa: PLR0911
 
     keyboard = ButtonGrid(rows=rows)
     return SelectorResponse(text=f"{header}\n\n{t('model.select_codex')}", buttons=keyboard)
+
+
+#: 9router lists dozens of single models next to a few combos, so the choice
+#: is made in two steps: which kind, then which one.
+_NINEROUTER_COMBOS = f"{ninerouter.PROVIDER}-combos"
+_NINEROUTER_SINGLES = f"{ninerouter.PROVIDER}-models"
+
+
+async def _build_ninerouter_step(step: str, header: str) -> SelectorResponse:
+    """``9router`` picks combos or single models; the other two steps list them."""
+    combos, singles = await asyncio.to_thread(ninerouter.list_models)
+    # Telegram caps callback_data at 64 bytes, and ':' would break the callback
+    # split; such IDs still work via `/model 9router/<id>`.
+    combos, singles = (
+        [m for m in ids if ":" not in m and len(f"ms:m:{m}".encode()) <= 64]
+        for ids in (combos, singles)
+    )
+
+    if step == ninerouter.PROVIDER:
+        rows = []
+        if combos:
+            rows.append(
+                [
+                    Button(
+                        text=f"🧩 Combos ({len(combos)})",
+                        callback_data=f"ms:p:{_NINEROUTER_COMBOS}",
+                    )
+                ]
+            )
+        if singles:
+            rows.append(
+                [
+                    Button(
+                        text=f"🤖 Single models ({len(singles)})",
+                        callback_data=f"ms:p:{_NINEROUTER_SINGLES}",
+                    )
+                ]
+            )
+        rows.append([Button(text=t("model.btn_back"), callback_data="ms:b:root")])
+        text = (
+            "Choose combos or single models:"
+            if rows[:-1]
+            else "No 9router models found. Check the 9router API key in /settings."
+        )
+        return SelectorResponse(text=f"{header}\n\n{text}", buttons=ButtonGrid(rows=rows))
+
+    # ponytail: Telegram allows 100 buttons per message; a router with more single
+    # models than that needs a provider step here (group by the `xx/` prefix).
+    listed = combos if step == _NINEROUTER_COMBOS else singles
+    rows = [
+        [Button(text=m.removeprefix(ninerouter.MODEL_PREFIX), callback_data=f"ms:m:{m}")]
+        for m in listed
+    ]
+    rows.append([Button(text=t("model.btn_back"), callback_data=f"ms:p:{ninerouter.PROVIDER}")])
+    kind = "combo" if step == _NINEROUTER_COMBOS else "model"
+    return SelectorResponse(
+        text=f"{header}\n\nSelect 9router {kind}:", buttons=ButtonGrid(rows=rows)
+    )
 
 
 async def _handle_model_selected(

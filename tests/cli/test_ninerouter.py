@@ -23,7 +23,10 @@ def test_ninerouter_end_to_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
 
     assert ModelRegistry.provider_for("9router/cc/claude-sonnet-4-5") == "9router"
     assert ninerouter.is_configured()
-    assert ninerouter.list_models() == ["9router/cc/claude-sonnet-4-5", "9router/premium-coding"]
+    assert ninerouter.list_models() == (
+        ["9router/premium-coding"],
+        ["9router/cc/claude-sonnet-4-5"],
+    )
 
     env = {"ANTHROPIC_API_KEY": "real-key"}
     ninerouter.apply_to_env(env)

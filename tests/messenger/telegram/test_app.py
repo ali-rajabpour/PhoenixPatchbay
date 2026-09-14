@@ -1681,3 +1681,33 @@ class TestSettingsInput:
             await tg_bot._handle_settings(key, 99, "set:c:gemini")
 
         assert tg_bot._config.gemini_api_key == ""
+
+
+class TestMenuStaysOneMessage:
+    """Tapping through the menu edits one message instead of leaving a trail of menus."""
+
+    @pytest.mark.asyncio
+    async def test_a_menu_item_replaces_the_menu_message(self) -> None:
+        tg_bot, bot_instance = _make_tg_bot()
+        bot_instance.edit_message_text = AsyncMock()
+        tg_bot._orchestrator = MagicMock()
+        tg_bot._orchestrator.handle_message = AsyncMock(
+            return_value=MagicMock(text="**Status**", buttons=None)
+        )
+        from phoenix_patchbay.messenger.telegram.menu import MENU_ITEMS, MNU_CLOSE
+
+        index = next(i for i, m in enumerate(MENU_ITEMS) if m.command == "/status")
+        with patch(
+            "phoenix_patchbay.messenger.telegram.app.send_rich", new_callable=AsyncMock
+        ) as sent:
+            await tg_bot._handle_menu_callback(SessionKey.telegram(1, 2), 55, f"mnu:{index}")
+
+        sent.assert_not_awaited()
+        kwargs = bot_instance.edit_message_text.await_args.kwargs
+        assert kwargs["message_id"] == 55
+        # A screen with no buttons of its own still has a way out.
+        assert any(
+            b.callback_data == MNU_CLOSE
+            for row in kwargs["reply_markup"].inline_keyboard
+            for b in row
+        )

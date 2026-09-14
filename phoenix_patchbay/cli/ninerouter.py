@@ -65,20 +65,30 @@ def is_configured() -> bool:
     return bool(settings()["NINEROUTER_BASE_URL"])
 
 
-def list_models(timeout: float = 5.0) -> list[str]:
-    """Return ``9router/``-prefixed model IDs, from NINEROUTER_MODELS or the live endpoint."""
+def list_models(timeout: float = 5.0) -> tuple[list[str], list[str]]:
+    """Return ``(combos, single models)`` as ``9router/``-prefixed IDs.
+
+    From NINEROUTER_MODELS or the live endpoint. The router marks combos with
+    ``owned_by: "combo"``; a name from NINEROUTER_MODELS is a combo when it has
+    no ``provider/`` prefix, which is how 9router names them.
+    """
     cfg = settings()
     names = [m.strip() for m in cfg["NINEROUTER_MODELS"].split(",") if m.strip()]
+    combo_ids = {n for n in names if "/" not in n}
     if not names and cfg["NINEROUTER_BASE_URL"]:
         req = urllib.request.Request(f"{cfg['NINEROUTER_BASE_URL']}/v1/models")  # noqa: S310
         if cfg["NINEROUTER_API_KEY"]:
             req.add_header("Authorization", f"Bearer {cfg['NINEROUTER_API_KEY']}")
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-                names = [m["id"] for m in json.load(resp).get("data", []) if m.get("id")]
-        except (OSError, ValueError, KeyError, TypeError) as exc:
+                data = [m for m in json.load(resp).get("data", []) if m.get("id")]
+            names = [m["id"] for m in data]
+            combo_ids = {m["id"] for m in data if m.get("owned_by") == "combo"}
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
             logger.warning("9router model list failed: %s", exc)
-    return [f"{MODEL_PREFIX}{n}" for n in names]
+    combos = [f"{MODEL_PREFIX}{n}" for n in names if n in combo_ids]
+    singles = [f"{MODEL_PREFIX}{n}" for n in names if n not in combo_ids]
+    return combos, singles
 
 
 def apply_to_env(env: dict[str, str]) -> None:

@@ -734,6 +734,8 @@ class ModelRegistry:
         full model IDs (``claude-opus-4-7``), so any ``claude-`` prefix
         routes to Claude.
         """
+        if model_id.startswith("9router/"):
+            return "9router"
         if model_id in CLAUDE_MODELS or model_id.startswith("claude-"):
             return "claude"
         if (

@@ -79,7 +79,7 @@ class ClaudeCodeCLI(BaseCLI):
         cmd = [self._cli, "-p", "--output-format", "json"]
 
         add_cli_opt(cmd, "--permission-mode", cfg.permission_mode)
-        add_cli_opt(cmd, "--model", cfg.model)
+        add_cli_opt(cmd, "--model", cfg.model.removeprefix("9router/") if cfg.model else None)
         # A persona is a Claude Code agent; --agent is what actually loads its
         # definition, rather than merely describing it in the prompt.
         add_cli_opt(cmd, "--agent", cfg.persona or None)
@@ -87,7 +87,9 @@ class ClaudeCodeCLI(BaseCLI):
         # own settings.json with enabledPlugins replaced, so the permission
         # allowlist and the hooks it carries are preserved.
         add_cli_opt(cmd, "--settings", settings_file)
-        if cfg.reasoning_effort and cfg.reasoning_effort != "default":
+        # 9router fans out to non-Anthropic backends that may reject Claude's
+        # thinking parameters, so effort is left to the router.
+        if cfg.reasoning_effort not in (None, "", "default") and cfg.provider != "9router":
             cmd += ["--effort", cfg.reasoning_effort]
         add_cli_opt(cmd, "--system-prompt", cfg.system_prompt)
         if append_prompt_file:

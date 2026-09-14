@@ -60,6 +60,14 @@ against Google before storing it, so you find out it works there and then rather
 when a write-up quietly fails. Without a key nothing breaks: the write-up resumes the
 coding session as it did before.
 
+## Using 9router
+
+Set `NINEROUTER_BASE_URL` and `NINEROUTER_API_KEY` in `.env` (optionally
+`NINEROUTER_MODELS`) and `/model` gains a `9ROUTER` button. The URL must be reachable
+from inside the container: `http://host.docker.internal:20128` does not resolve on
+Linux by default, so use the host's LAN or VPN address, or run 9router on a network
+the container can route to.
+
 ## Where your projects go
 
 Everything lives in the `patchbay_home` volume, mounted at `/home/patchbay`.

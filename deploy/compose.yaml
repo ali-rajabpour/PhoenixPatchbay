@@ -30,6 +30,10 @@ services:
       # of the coding session, so it is not billed to your Claude subscription.
       # Without one, nothing changes: the write-up resumes the session as before.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Optional 9router endpoint for the 9ROUTER button in /model.
+      NINEROUTER_BASE_URL: ${NINEROUTER_BASE_URL:-}
+      NINEROUTER_API_KEY: ${NINEROUTER_API_KEY:-}
+      NINEROUTER_MODELS: ${NINEROUTER_MODELS:-}
       TZ: ${TZ:-UTC}
 
     # Everything stateful lives here: config, credentials, projects, memory.

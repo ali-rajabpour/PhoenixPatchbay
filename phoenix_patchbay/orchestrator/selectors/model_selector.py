@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from phoenix_patchbay.cli import ninerouter
 from phoenix_patchbay.cli.auth import AuthStatus, check_all_auth
 from phoenix_patchbay.config import (
     ANTIGRAVITY_MODELS_ORDERED,
@@ -241,6 +242,8 @@ async def model_selector_start(
     """
     auth = await asyncio.to_thread(check_all_auth)
     authed = [name for name, res in auth.items() if res.status == AuthStatus.AUTHENTICATED]
+    if ninerouter.is_configured():
+        authed.append(ninerouter.PROVIDER)
 
     header = await _status_line(orch, key)
 
@@ -261,8 +264,9 @@ async def model_selector_start(
         buttons.append(Button(text="CLAUDE", callback_data="ms:p:claude"))
     if "codex" in authed:
         buttons.append(Button(text="CODEX", callback_data="ms:p:codex"))
-    if "gemini" in authed:
-        buttons.append(Button(text="GEMINI", callback_data="ms:p:gemini"))
+    # 9router took Gemini's slot; Gemini models stay reachable via `/model <id>`.
+    if ninerouter.PROVIDER in authed:
+        buttons.append(Button(text="9ROUTER", callback_data="ms:p:9router"))
     if "antigravity" in authed:
         buttons.append(Button(text="ANTIGRAVITY", callback_data="ms:p:antigravity"))
     if "grok" in authed:
@@ -578,7 +582,7 @@ async def _status_line(orch: Orchestrator, key: SessionKey) -> str:
     return current
 
 
-async def _build_model_step(
+async def _build_model_step(  # noqa: PLR0911
     provider: str,
     header: str,
     codex_cache: CodexModelCache | None = None,
@@ -601,6 +605,26 @@ async def _build_model_step(
             ]
         )
         return SelectorResponse(text=f"{header}\n\n{prompt}", buttons=keyboard)
+
+    if provider == ninerouter.PROVIDER:
+        router_models = await asyncio.to_thread(ninerouter.list_models)
+        # Telegram caps callback_data at 64 bytes, and ':' would break the callback
+        # split; such IDs still work via `/model 9router/<id>`.
+        router_models = [
+            m for m in router_models if ":" not in m and len(f"ms:m:{m}".encode()) <= 64
+        ]
+        router_rows = [
+            [Button(text=m.removeprefix(ninerouter.MODEL_PREFIX), callback_data=f"ms:m:{m}")]
+            for m in router_models
+        ]
+        router_rows.append([Button(text=t("model.btn_back"), callback_data="ms:b:root")])
+        text = (
+            "Select 9router model:"
+            if router_models
+            else "No 9router models found. Check NINEROUTER_BASE_URL / NINEROUTER_API_KEY, "
+            "or list them in NINEROUTER_MODELS."
+        )
+        return SelectorResponse(text=f"{header}\n\n{text}", buttons=ButtonGrid(rows=router_rows))
 
     if provider == "gemini":
         gemini_models = _gemini_models_for_selector()

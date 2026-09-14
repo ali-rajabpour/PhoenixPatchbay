@@ -85,6 +85,10 @@ def build_subprocess_env(config: CLIConfig) -> dict[str, str] | None:
     # empty string would NOT be equivalent — Claude Code reads empty as
     # ``~/.claude`` and would ignore a custom CLAUDE_CONFIG_DIR.
     apply_account_env(env, config.claude_account_dir)
+    if config.provider == "9router":
+        from phoenix_patchbay.cli.ninerouter import apply_to_env as apply_ninerouter_env
+
+        apply_ninerouter_env(env)
     return env
 
 

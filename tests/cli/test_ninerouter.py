@@ -44,3 +44,36 @@ def test_ninerouter_end_to_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     cmd = cli._build_command("hi")
     assert cmd[cmd.index("--model") + 1] == "cc/claude-sonnet-4-5"
     assert "--effort" not in cmd
+
+
+async def test_settings_key_is_checked_and_wins(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The /settings key is verified against the router, then used over the env key."""
+    from aiohttp import web
+
+    async def models(request: web.Request) -> web.Response:
+        if request.headers.get("Authorization") != "Bearer sk-good":
+            return web.json_response({}, status=401)
+        return web.json_response({"data": [{"id": "cc/claude-sonnet-4-5"}, {"id": "premium"}]})
+
+    app = web.Application()
+    app.router.add_get("/v1/models", models)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    port = site._server.sockets[0].getsockname()[1]  # type: ignore[union-attr]
+    try:
+        monkeypatch.setenv("PATCHBAY_HOME", str(tmp_path))
+        monkeypatch.setenv("NINEROUTER_BASE_URL", f"http://127.0.0.1:{port}")
+        monkeypatch.setenv("NINEROUTER_API_KEY", "sk-env")
+
+        assert (await ninerouter.verify_api_key("sk-good")).detail == "2"
+        assert not (await ninerouter.verify_api_key("sk-bad")).ok
+
+        (tmp_path / "config").mkdir()
+        (tmp_path / "config" / "config.json").write_text('{"ninerouter_api_key": "sk-good"}')
+        assert ninerouter.settings()["NINEROUTER_API_KEY"] == "sk-good"
+    finally:
+        await runner.cleanup()

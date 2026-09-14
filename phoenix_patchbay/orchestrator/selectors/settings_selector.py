@@ -22,6 +22,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from phoenix_patchbay.cli import ninerouter
 from phoenix_patchbay.cli.gemini_verify import VerifyResult, verify_gemini_key
 from phoenix_patchbay.i18n import t
 from phoenix_patchbay.orchestrator.selectors.models import Button, ButtonGrid, SelectorResponse
@@ -67,10 +68,20 @@ class Setting:
     valid key whose format changed, accepts a revoked one, and cannot see the
     typo it is supposedly guarding against.
     """
+    #: Wording that names the service; the defaults say Google.
+    checking: str = "settings.checking"
+    cleared: str = "settings.cleared"
 
 
 SETTINGS: tuple[Setting, ...] = (
     Setting(key="gemini", field="gemini_api_key", verify=verify_gemini_key),
+    Setting(
+        key="ninerouter",
+        field="ninerouter_api_key",
+        verify=ninerouter.verify_api_key,
+        checking="settings.checking_ninerouter",
+        cleared="settings.cleared_ninerouter",
+    ),
 )
 
 
@@ -158,7 +169,7 @@ def checking_screen(setting: Setting) -> SelectorResponse:
     No buttons: every action here would race the check that is already running.
     """
     return SelectorResponse(
-        text=f"{t(f'settings.item_{setting.key}')}\n\n{t('settings.checking')}",
+        text=f"{t(f'settings.item_{setting.key}')}\n\n{t(setting.checking)}",
         buttons=None,
     )
 
@@ -166,6 +177,8 @@ def checking_screen(setting: Setting) -> SelectorResponse:
 def verdict_notice(result: VerifyResult) -> str:
     """One line saying what the service answered."""
     if result.ok:
+        if result.reason:
+            return t(result.reason, count=result.detail)
         if result.detail:
             return t("settings.verified_with_models", count=result.detail)
         return t("settings.verified")

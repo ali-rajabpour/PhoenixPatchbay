@@ -2260,7 +2260,7 @@ class TelegramBot:
 
         if action == "clear":
             await self._store_setting(setting.field, "")
-            await show(setting_detail(self._config, setting, notice=t("settings.cleared")))
+            await show(setting_detail(self._config, setting, notice=t(setting.cleared)))
             return
 
         if action == "test":

@@ -2216,11 +2216,15 @@ class TelegramBot:
         await self._handle_settings(key, message_id, data)
         return True
 
-    async def _handle_settings(self, key: SessionKey, message_id: int, data: str) -> None:
+    async def _handle_settings(  # noqa: PLR0911
+        self, key: SessionKey, message_id: int, data: str
+    ) -> None:
         """Drive the settings screens. Every branch edits the same message."""
         from phoenix_patchbay.orchestrator.selectors.models import SelectorResponse
         from phoenix_patchbay.orchestrator.selectors.settings_selector import (
+            SET_KEYS,
             SET_ROOT,
+            api_keys_root,
             ask_for_value,
             checking_screen,
             current_value,
@@ -2236,13 +2240,17 @@ class TelegramBot:
 
         if data == SET_ROOT:
             self._pending_setting.pop(key.storage_key, None)
-            await show(settings_root(self._config))
+            await show(settings_root())
+            return
+        if data == SET_KEYS:
+            self._pending_setting.pop(key.storage_key, None)
+            await show(api_keys_root(self._config))
             return
 
         parsed = parse_callback(data)
         setting = setting_for(parsed[1]) if parsed is not None else None
         if parsed is None or setting is None:
-            await show(settings_root(self._config))
+            await show(settings_root())
             return
         action = parsed[0]
 

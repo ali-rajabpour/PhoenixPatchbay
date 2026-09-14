@@ -9,6 +9,7 @@ from phoenix_patchbay.config import AgentConfig
 from phoenix_patchbay.i18n import init
 from phoenix_patchbay.orchestrator.selectors.settings_selector import (
     SETTINGS,
+    api_keys_root,
     ask_for_value,
     checking_screen,
     current_value,
@@ -59,15 +60,15 @@ class TestState:
         assert current_value(_config(gemini_api_key="   "), setting_for("gemini")) == ""
 
     def test_the_list_says_which_way_round_it_is(self) -> None:
-        unset = settings_root(_config(gemini_api_key="null"))
+        unset = api_keys_root(_config(gemini_api_key="null"))
         assert "⚠️" in unset.buttons.rows[0][0].text
-        was_set = settings_root(_config(gemini_api_key=KEY))
+        was_set = api_keys_root(_config(gemini_api_key=KEY))
         assert "✅" in was_set.buttons.rows[0][0].text
 
     def test_an_unset_value_says_what_it_costs(self) -> None:
         """A warning with no consequence attached is decoration."""
-        assert "$0.17" in settings_root(_config(gemini_api_key="null")).text
-        assert "$0.17" not in settings_root(_config(gemini_api_key=KEY)).text
+        assert "$0.17" in api_keys_root(_config(gemini_api_key="null")).text
+        assert "$0.17" not in api_keys_root(_config(gemini_api_key=KEY)).text
 
     def test_a_stored_value_can_be_re_tested(self) -> None:
         """Keys get revoked and quotas run out without this screen changing."""
@@ -162,3 +163,25 @@ class TestCallbacks:
 
     def test_an_unknown_setting_key_resolves_to_nothing(self) -> None:
         assert setting_for("does-not-exist") is None
+
+
+def test_settings_top_opens_model_accounts_and_keys() -> None:
+    """Model and accounts moved here from the menu; each button must land on a handler."""
+    from phoenix_patchbay.orchestrator.selectors.account_selector import (
+        is_account_selector_callback,
+    )
+    from phoenix_patchbay.orchestrator.selectors.model_selector import (
+        is_model_selector_callback,
+    )
+    from phoenix_patchbay.orchestrator.selectors.settings_selector import SET_KEYS, SET_ROOT
+
+    top = settings_root()
+    assert top.buttons is not None
+    model, accounts, keys = (row[0].callback_data for row in top.buttons.rows)
+    assert is_model_selector_callback(model)
+    assert is_account_selector_callback(accounts)
+    assert keys == SET_KEYS
+
+    listing = api_keys_root(_config())
+    assert listing.buttons is not None
+    assert listing.buttons.rows[-1][0].callback_data == SET_ROOT

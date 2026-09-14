@@ -31,6 +31,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 ACC_PREFIX = "acc:"
+#: Opens the selector without switching anything (used from /settings). Any
+#: non-numeric payload redraws the selector; this one says so on purpose.
+ACC_OPEN = "acc:open"
 
 #: Accounts are addressed in callback data by index into the sorted name list,
 #: not by name: Telegram caps callback_data at 64 UTF-8 bytes, and any reserved

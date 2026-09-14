@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 from phoenix_patchbay.cli import ninerouter
 from phoenix_patchbay.cli.gemini_verify import VerifyResult, verify_gemini_key
 from phoenix_patchbay.i18n import t
+from phoenix_patchbay.orchestrator.selectors.account_selector import ACC_OPEN
 from phoenix_patchbay.orchestrator.selectors.models import Button, ButtonGrid, SelectorResponse
 
 if TYPE_CHECKING:
@@ -43,8 +44,10 @@ SET_EDIT = "set:e:"
 SET_CLEAR = "set:c:"
 #: Re-check a stored value against the service that owns it.
 SET_TEST = "set:t:"
-#: Back to the list.
+#: Back to the top of /settings.
 SET_ROOT = "set:root"
+#: The API key list.
+SET_KEYS = "set:keys"
 
 #: Config values meaning "unset". The example config ships the string "null".
 NULLISH = frozenset({"", "null", "none", "-"})
@@ -107,8 +110,22 @@ def mask(value: str) -> str:
     return f"{value[:4]}{'•' * 8}{value[-3:]}"
 
 
-def settings_root(config: AgentConfig) -> SelectorResponse:
-    """The list. Each row carries its own state, so the list is the answer."""
+def settings_root() -> SelectorResponse:
+    """The top of /settings: model, Claude accounts and API keys.
+
+    Model and accounts open their own screens in place, through the callbacks
+    those screens already answer, so /model and /account stay the one source.
+    """
+    rows = [
+        [Button(text=t("menu.item_model"), callback_data="ms:b:root")],
+        [Button(text=t("menu.item_account"), callback_data=ACC_OPEN)],
+        [Button(text=t("settings.item_keys"), callback_data=SET_KEYS)],
+    ]
+    return SelectorResponse(text=t("settings.header"), buttons=ButtonGrid(rows=rows))
+
+
+def api_keys_root(config: AgentConfig) -> SelectorResponse:
+    """The key list. Each row carries its own state, so the list is the answer."""
     rows = []
     unset = []
     for setting in SETTINGS:
@@ -125,10 +142,11 @@ def settings_root(config: AgentConfig) -> SelectorResponse:
             ]
         )
 
-    lines = [t("settings.header")]
+    lines = [t("settings.keys_header")]
     # A warning with no consequence attached is noise. Say what it costs.
     for key in unset:
         lines += ["", t(f"settings.consequence_{key}")]
+    rows.append([Button(text=t("settings.btn_list"), callback_data=SET_ROOT)])
     return SelectorResponse(text="\n".join(lines), buttons=ButtonGrid(rows=rows))
 
 
@@ -159,7 +177,7 @@ def setting_detail(config: AgentConfig, setting: Setting, notice: str = "") -> S
         actions.append(
             Button(text=t("settings.btn_clear"), callback_data=f"{SET_CLEAR}{setting.key}")
         )
-    back = [Button(text=t("settings.btn_list"), callback_data=SET_ROOT)]
+    back = [Button(text=t("settings.btn_keys"), callback_data=SET_KEYS)]
     return SelectorResponse(text="\n".join(lines), buttons=ButtonGrid(rows=[actions, back]))
 
 

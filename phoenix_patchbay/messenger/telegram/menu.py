@@ -60,14 +60,13 @@ MENU_ITEMS: tuple[MenuItem, ...] = (
     MenuItem("folder", "/folder"),
     MenuItem("persona", "/persona"),
     MenuItem("plugins", "/plugins"),
-    MenuItem("model", "/model"),
-    MenuItem("account", "/account"),
     MenuItem("skills", "/skills"),
     MenuItem("compact", "/compact"),
     MenuItem("clear", "/clear"),
     MenuItem("handoff", "/handoff"),
     MenuItem("status", "/status"),
     MenuItem("consult", "/consult"),
+    # Model and Claude accounts live under Settings.
     MenuItem("settings", "/settings"),
     MenuItem("help", "/help"),
 )

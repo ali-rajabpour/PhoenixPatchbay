@@ -22,7 +22,8 @@ def _picker() -> set[str]:
 
 
 def _menu() -> set[str]:
-    return {item.command.lstrip("/") for item in MENU_ITEMS}
+    # /model and /account are reached from the menu through Settings.
+    return {item.command.lstrip("/") for item in MENU_ITEMS} | {"model", "account"}
 
 
 def test_everything_hidden_is_reachable_from_the_menu() -> None:

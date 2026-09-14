@@ -179,10 +179,10 @@ async def cmd_consult(orch: Orchestrator, _key: SessionKey, _text: str) -> Orche
     return OrchestratorResult(text=resp.text, buttons=resp.buttons)
 
 
-async def cmd_settings(orch: Orchestrator, _key: SessionKey, _text: str) -> OrchestratorResult:
+async def cmd_settings(_orch: Orchestrator, _key: SessionKey, _text: str) -> OrchestratorResult:
     """Handle /settings: values that can be changed without touching the host."""
     logger.info("Settings requested")
-    resp = settings_root(orch.config)
+    resp = settings_root()
     return OrchestratorResult(text=resp.text, buttons=resp.buttons)
 
 

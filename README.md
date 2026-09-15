@@ -128,6 +128,14 @@ fits on a screen, and button labels that never inline into a sentence.
 which agent governs a conversation instead of picking something plausible, and `/skills`
 browses what is installed.
 
+**Images from any agent, with the key out of its reach.** `patchbay image` generates a
+picture through any OpenAI-compatible images API, whatever model the agent itself runs
+on. The key lives in `/settings` and is read from config on each call, so it never enters
+the agent's environment or transcript; the endpoint and default model are
+`IMAGEGEN_BASE_URL` and `IMAGEGEN_MODEL`. The result is not approved for the agent to
+read. It is sent to you for a visual check first, because opening every draft would spend
+tokens on pictures nobody has looked at yet.
+
 ### Running it
 
 Deployment lives outside this repository: the bot runs as an unprivileged user on a
@@ -594,6 +602,8 @@ patchbay api disable      # Disable WebSocket API
 
 patchbay install matrix   # Install Matrix transport extra
 patchbay install api      # Install API/PyNaCl extra
+
+patchbay image "a red fox, flat illustration" --out fox.png   # Generate an image (see Features)
 ```
 
 `patchbay agents add` currently scaffolds Telegram sub-agents interactively. Matrix

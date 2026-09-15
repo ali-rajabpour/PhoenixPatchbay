@@ -2,7 +2,8 @@
 
 A persona is a Claude Code agent: a Markdown file in ``<config>/agents/`` whose
 frontmatter carries a name and description. Passing ``--agent <name>`` makes it
-govern the run.
+govern the run. An optional integer ``order`` key sets its place in the picker;
+Claude Code ignores the key.
 
 Nothing here guesses. A persona is only ever offered because the user wrote the
 file, and only ever applied because the user chose it.
@@ -25,6 +26,7 @@ class Persona:
     name: str
     description: str
     path: Path
+    order: int | None = None
 
 
 def config_dir() -> Path:
@@ -63,7 +65,9 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
 
 
 def load_personas(config: Path | None = None) -> list[Persona]:
-    """Return the personas defined for this installation, name-sorted.
+    """Return the personas defined for this installation.
+
+    Personas with an ``order`` come first, lowest first; the rest follow by name.
 
     An empty list is a normal state, not an error: most installations have no
     agents, and the feature stays invisible for them.
@@ -86,9 +90,15 @@ def load_personas(config: Path | None = None) -> list[Persona]:
             logger.debug("Unreadable persona file: %s", file)
             continue
         name = meta.get("name") or file.stem
-        personas.append(Persona(name=name, description=meta.get("description", ""), path=file))
+        try:
+            order: int | None = int(meta["order"])
+        except (KeyError, ValueError):
+            order = None
+        personas.append(
+            Persona(name=name, description=meta.get("description", ""), path=file, order=order)
+        )
 
-    return sorted(personas, key=lambda p: p.name.lower())
+    return sorted(personas, key=lambda p: (p.order is None, p.order or 0, p.name.lower()))
 
 
 def is_known(name: str, config: Path | None = None) -> bool:

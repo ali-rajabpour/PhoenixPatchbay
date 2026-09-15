@@ -212,6 +212,9 @@ Deliberate limits:
   hatch is omitted: it would quietly become the path of least resistance.
 - **Off by default.** It adds a prompt before the first reply, which should be
   opted into rather than arriving with an upgrade.
+- **Order is yours.** An optional `order: <integer>` in an agent's frontmatter
+  sets its place in the picker, lowest first; agents without one follow by name.
+  The picker numbers the entries for display only.
 
 The choice is stored per conversation in `personas.json` and survives a restart.
 A held message is not persisted: if the bot restarts between the question and

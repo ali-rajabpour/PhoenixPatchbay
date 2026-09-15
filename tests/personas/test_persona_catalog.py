@@ -26,6 +26,14 @@ def test_personas_are_discovered_and_sorted(tmp_path: Path) -> None:
     assert [p.name for p in load_personas(tmp_path)] == ["coder", "designer", "scout"]
 
 
+def test_order_key_puts_personas_first_and_the_rest_follow_by_name(tmp_path: Path) -> None:
+    for name, order in (("scout", "3"), ("coder", "1"), ("alpha", None), ("beta", "oops")):
+        (tmp_path / "agents").mkdir(parents=True, exist_ok=True)
+        extra = f"order: {order}\n" if order else ""
+        (tmp_path / "agents" / f"{name}.md").write_text(f"---\nname: {name}\n{extra}---\n")
+    assert [p.name for p in load_personas(tmp_path)] == ["coder", "scout", "alpha", "beta"]
+
+
 def test_description_is_read_from_frontmatter(tmp_path: Path) -> None:
     _agent(tmp_path, "coder", "Code, debugging, review: infra and deployment")
     persona = load_personas(tmp_path)[0]

@@ -60,7 +60,7 @@ def test_callback_matching() -> None:
 def test_every_persona_is_offered(tmp_path: Path) -> None:
     with _patched():
         resp = persona_selector(_orch(tmp_path), SessionKey.telegram(1, 2))
-    assert [b.text for b in _buttons(resp)] == ["coder", "designer", "scout"]
+    assert [b.text for b in _buttons(resp)] == ["1. coder", "2. designer", "3. scout"]
 
 
 def test_no_default_button_when_personas_exist(tmp_path: Path) -> None:
@@ -83,7 +83,7 @@ def test_current_choice_is_marked(tmp_path: Path) -> None:
     with _patched():
         resp = persona_selector(_orch(tmp_path, "designer"), SessionKey.telegram(1, 2))
     marked = [b.text for b in _buttons(resp) if b.text.startswith("✅")]
-    assert marked == ["✅ designer"]
+    assert marked == ["✅ 2. designer"]
 
 
 def test_descriptions_are_shown(tmp_path: Path) -> None:

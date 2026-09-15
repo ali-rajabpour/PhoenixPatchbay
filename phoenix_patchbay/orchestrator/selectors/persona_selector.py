@@ -77,16 +77,17 @@ def persona_selector(
             ),
         )
 
+    # Numbers are display only: callbacks carry the index and the store keeps the name.
     lines = [header, ""]
-    for p in personas:
+    for n, p in enumerate(personas, start=1):
         mark = "✅ " if p.name == current else ""
-        lines.append(f"{mark}`{p.name}`")
+        lines.append(f"{mark}{n}. `{p.name}`")
         if p.description:
             lines.append(f"  {_short(p.description)}")
 
     buttons = [
         Button(
-            text=f"✅ {p.name}" if p.name == current else p.name,
+            text=f"✅ {i + 1}. {p.name}" if p.name == current else f"{i + 1}. {p.name}",
             callback_data=f"{PRS_PREFIX}{i}",
         )
         for i, p in enumerate(personas)

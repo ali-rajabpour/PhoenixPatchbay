@@ -673,6 +673,16 @@ verified_ninerouter = "✅ Working — 9router accepted this key ({count} models
 err_ninerouter_rejected = "❌ 9router rejected this key. Copy it again from the dashboard and send it again."
 err_ninerouter_unreachable = "⚠️ Could not reach 9router. Nothing was saved — check the network or VPN and send it again."
 err_ninerouter_no_url = "⚠️ No 9router address is configured. Set `NINEROUTER_BASE_URL` for patchbay first."
+item_imagegen = "🎨 Image generation"
+consequence_imagegen = "No image key: `patchbay image` will refuse to run."
+about_imagegen = "Used by `patchbay image`, which agents run to generate pictures through any OpenAI-compatible images API (OpenAI, 9router, Together…). The address and default model come from `IMAGEGEN_BASE_URL` and `IMAGEGEN_MODEL`. Use a dedicated key with a spending cap set at the provider."
+ask_imagegen = "Send the key as a message. Use a dedicated key with a spending cap at your image provider."
+checking_imagegen = "Checking with the image provider…"
+cleared_imagegen = "🗑 Removed. Image generation will be refused until a key is set."
+verified_imagegen = "✅ Working: the image provider accepted this key ({count} models available)."
+err_imagegen_rejected = "❌ The image provider rejected this key. Copy it again and send it again."
+err_imagegen_unreachable = "⚠️ Could not reach the image provider. Nothing was saved. Check `IMAGEGEN_BASE_URL` and the network, then send it again."
+err_imagegen_no_url = "⚠️ No image provider address is configured. Set `IMAGEGEN_BASE_URL` for patchbay first."
 
 [handoff]
 nothing_to_compact = "Nothing to compact — this conversation has no active session yet. Send a message first."

@@ -463,6 +463,8 @@ class AgentConfig(BaseModel):
     gemini_api_key: str | None = None
     # 9router API key for the 9ROUTER models; set from /settings.
     ninerouter_api_key: str | None = None
+    # Image provider key for `patchbay image`; set from /settings.
+    imagegen_api_key: str | None = None
     streaming: StreamingConfig = Field(default_factory=StreamingConfig)
     docker: DockerConfig = Field(default_factory=DockerConfig)
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
@@ -524,7 +526,7 @@ class AgentConfig(BaseModel):
         """The single allowed user, or None before setup has run."""
         return self.allowed_user_ids[0] if self.allowed_user_ids else None
 
-    @field_validator("gemini_api_key", "ninerouter_api_key", mode="before")
+    @field_validator("gemini_api_key", "ninerouter_api_key", "imagegen_api_key", mode="before")
     @classmethod
     def _normalize_gemini_api_key(cls, value: object) -> object:
         """Normalize null-like string values to ``None`` for optional key config."""

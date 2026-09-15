@@ -62,11 +62,18 @@ coding session as it did before.
 
 ## Using 9router
 
-Set `NINEROUTER_BASE_URL` and `NINEROUTER_API_KEY` in `.env` (optionally
-`NINEROUTER_MODELS`) and `/model` gains a `9ROUTER` button. The URL must be reachable
-from inside the container: `http://host.docker.internal:20128` does not resolve on
-Linux by default, so use the host's LAN or VPN address, or run 9router on a network
-the container can route to.
+Set `NINEROUTER_BASE_URL` in `.env` (optionally `NINEROUTER_MODELS`), then paste the
+9router key into `/settings` → API keys → 9router, and `/model` gains a `9ROUTER`
+button. The URL must be reachable from inside the container:
+`http://host.docker.internal:20128` does not resolve on Linux by default, so use the
+host's LAN or VPN address, or run 9router on a network the container can route to.
+
+## Image generation
+
+Set `IMAGEGEN_BASE_URL` (OpenAI style, including `/v1`) and `IMAGEGEN_MODEL` in `.env`,
+then paste the image provider's key into `/settings` → API keys → Image generation.
+Agents can then run `patchbay image`. Use a dedicated key with a spending cap set at
+the provider.
 
 ## Where your projects go
 

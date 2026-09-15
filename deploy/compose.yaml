@@ -30,10 +30,13 @@ services:
       # of the coding session, so it is not billed to your Claude subscription.
       # Without one, nothing changes: the write-up resumes the session as before.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      # Optional 9router endpoint for the 9ROUTER button in /model.
+      # Optional 9router endpoint for the 9ROUTER button in /model. The key is
+      # set from /settings in the chat.
       NINEROUTER_BASE_URL: ${NINEROUTER_BASE_URL:-}
-      NINEROUTER_API_KEY: ${NINEROUTER_API_KEY:-}
       NINEROUTER_MODELS: ${NINEROUTER_MODELS:-}
+      # Optional images API for `patchbay image`. The key is set from /settings.
+      IMAGEGEN_BASE_URL: ${IMAGEGEN_BASE_URL:-}
+      IMAGEGEN_MODEL: ${IMAGEGEN_MODEL:-}
       TZ: ${TZ:-UTC}
 
     # Everything stateful lives here: config, credentials, projects, memory.

@@ -18,8 +18,9 @@ if TYPE_CHECKING:
 def test_ninerouter_end_to_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("PATCHBAY_HOME", str(tmp_path))
     monkeypatch.setenv("NINEROUTER_BASE_URL", "http://router.mesh:20128/v1/")
-    monkeypatch.setenv("NINEROUTER_API_KEY", "sk-test")
     monkeypatch.setenv("NINEROUTER_MODELS", "cc/claude-sonnet-4-5, premium-coding")
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "config.json").write_text('{"ninerouter_api_key": "sk-test"}')
 
     assert ModelRegistry.provider_for("9router/cc/claude-sonnet-4-5") == "9router"
     assert ninerouter.is_configured()
@@ -49,10 +50,10 @@ def test_ninerouter_end_to_end(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     assert "--effort" not in cmd
 
 
-async def test_settings_key_is_checked_and_wins(
+async def test_settings_key_is_checked_and_is_the_only_source(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The /settings key is verified against the router, then used over the env key."""
+    """The /settings key is verified against the router; an environment key is ignored."""
     from aiohttp import web
 
     async def models(request: web.Request) -> web.Response:
@@ -74,6 +75,7 @@ async def test_settings_key_is_checked_and_wins(
 
         assert (await ninerouter.verify_api_key("sk-good")).detail == "2"
         assert not (await ninerouter.verify_api_key("sk-bad")).ok
+        assert ninerouter.settings()["NINEROUTER_API_KEY"] == ""
 
         (tmp_path / "config").mkdir()
         (tmp_path / "config" / "config.json").write_text('{"ninerouter_api_key": "sk-good"}')

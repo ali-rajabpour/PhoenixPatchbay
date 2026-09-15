@@ -87,6 +87,8 @@ Changes take effect on the next CLI invocation (mtime-based cache invalidation, 
 | `persona_prompt` | `bool` | `false` | Ask which persona (Claude Code agent) should govern a new conversation (see below) |
 | `file_access` | `str` | `"all"` | File access scope (`all`, `home`, `workspace`) for file sends and API `GET /files`; unknown values fall back to workspace-only |
 | `gemini_api_key` | `str \| None` | `None` | Config fallback key injected for Gemini API-key mode |
+| `ninerouter_api_key` | `str \| None` | `None` | 9router key for the 9ROUTER models. Set from `/settings` only |
+| `imagegen_api_key` | `str \| None` | `None` | Image provider key for `patchbay image`. Set from `/settings` only |
 | `transport` | `str` | `"telegram"` | Messaging transport: `"telegram"` or `"matrix"` |
 | `transports` | `list[str]` | `[]` | List of transports to run in parallel (e.g. `["telegram", "matrix"]`). When empty, falls back to single `transport` value. |
 | `telegram_token` | `str` | `""` | Telegram bot token (required when `transport=telegram`) |

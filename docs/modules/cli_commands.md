@@ -11,6 +11,7 @@ CLI command implementation package extracted from `__main__.py`.
 - `cli_commands/api_cmd.py`: `patchbay api ...`
 - `cli_commands/agents.py`: `patchbay agents ...`
 - `cli_commands/install.py`: `patchbay install <extra>`
+- `cli_commands/image.py`: `patchbay image <prompt> --out <path>`
 
 ## Role in runtime
 
@@ -31,6 +32,7 @@ This keeps lifecycle logic testable and prevents command monolith growth.
 - api: enable/disable direct WebSocket API block in config
 - agents: list/add/remove sub-agent entries in `agents.json`
 - install extras: `patchbay install <extra>` for optional Python extras (`matrix`, `api`)
+- image: `patchbay image` generates one image through any OpenAI-compatible images API (`IMAGEGEN_BASE_URL`, `IMAGEGEN_MODEL`), with the key from `/settings` so agents never handle it; logic in `cli/imagegen.py`
 
 ## Notable behavior details
 

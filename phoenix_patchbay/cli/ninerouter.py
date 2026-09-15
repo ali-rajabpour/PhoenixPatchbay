@@ -5,12 +5,12 @@ so no separate CLI is needed. A 9router model is addressed as
 ``9router/<router-model>`` (``9router/cc/claude-sonnet-4-5``, or a combo name);
 the prefix picks the provider and is stripped before the model reaches the CLI.
 
-Configured entirely from the environment, or ``~/.phoenix-patchbay/.env``:
+The address and model list come from the environment, or ``~/.phoenix-patchbay/.env``:
 
 - ``NINEROUTER_BASE_URL``  e.g. ``http://localhost:20128`` (a trailing ``/v1`` is fine)
-- ``NINEROUTER_API_KEY``   the key from the 9router dashboard; a key entered in
-  ``/settings`` (``ninerouter_api_key`` in ``config.json``) takes precedence
 - ``NINEROUTER_MODELS``    optional comma list; otherwise ``GET /v1/models`` is asked
+
+The key is set only from ``/settings`` (``ninerouter_api_key`` in ``config.json``).
 """
 
 from __future__ import annotations
@@ -28,22 +28,21 @@ logger = logging.getLogger(__name__)
 
 PROVIDER = "9router"
 MODEL_PREFIX = "9router/"
-_KEYS = ("NINEROUTER_BASE_URL", "NINEROUTER_API_KEY", "NINEROUTER_MODELS")
+_ENV_KEYS = ("NINEROUTER_BASE_URL", "NINEROUTER_MODELS")
 
 
 def settings(env: dict[str, str] | None = None) -> dict[str, str]:
-    """Return the NINEROUTER_* values, process env first, then the patchbay ``.env``."""
+    """Address and models from process env, then the patchbay ``.env``; key from /settings."""
     source = os.environ if env is None else env
-    values = {k: source.get(k, "").strip() for k in _KEYS}
+    values = {k: source.get(k, "").strip() for k in _ENV_KEYS}
     if env is None and not all(values.values()):
         from phoenix_patchbay.infra.env_secrets import load_env_secrets
         from phoenix_patchbay.workspace.paths import resolve_paths
 
         secrets = load_env_secrets(resolve_paths().env_file)
-        for k in _KEYS:
+        for k in _ENV_KEYS:
             values[k] = values[k] or secrets.get(k, "").strip()
-    if env is None:
-        values["NINEROUTER_API_KEY"] = _stored_api_key() or values["NINEROUTER_API_KEY"]
+    values["NINEROUTER_API_KEY"] = _stored_api_key() if env is None else ""
     values["NINEROUTER_BASE_URL"] = values["NINEROUTER_BASE_URL"].rstrip("/").removesuffix("/v1")
     return values
 

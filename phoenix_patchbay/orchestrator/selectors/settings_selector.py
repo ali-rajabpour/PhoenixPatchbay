@@ -8,9 +8,10 @@ root is unrelated to the thing they came to do.
 What this costs instead is that a secret typed here crosses Telegram. The
 message is deleted the moment it is read and the value is never echoed back in
 full — but deletion is best effort, and nothing can unsend what was already
-delivered. That is an acceptable trade for a free key that only writes
-handoffs. It would not be for a credential that can spend money or reach a
-database, and no such setting belongs on this screen.
+delivered. A key that can spend money belongs here only as a dedicated key with
+a spending cap set at the provider, so a key that leaks through the chat costs
+no more than the cap. A credential that reaches a database has no such cap, and
+no such setting belongs on this screen.
 
 Entries are a list rather than a screen each, so the next setting is a row here
 and nothing new to navigate.
@@ -22,7 +23,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from phoenix_patchbay.cli import ninerouter
+from phoenix_patchbay.cli import imagegen, ninerouter
 from phoenix_patchbay.cli.gemini_verify import VerifyResult, verify_gemini_key
 from phoenix_patchbay.i18n import t
 from phoenix_patchbay.orchestrator.selectors.account_selector import ACC_OPEN
@@ -84,6 +85,13 @@ SETTINGS: tuple[Setting, ...] = (
         verify=ninerouter.verify_api_key,
         checking="settings.checking_ninerouter",
         cleared="settings.cleared_ninerouter",
+    ),
+    Setting(
+        key="imagegen",
+        field="imagegen_api_key",
+        verify=imagegen.verify_api_key,
+        checking="settings.checking_imagegen",
+        cleared="settings.cleared_imagegen",
     ),
 )
 

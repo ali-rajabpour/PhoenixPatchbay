@@ -108,17 +108,35 @@ class TestWhatIsKept:
 class TestWatermark:
     def test_round_trip(self, tmp_path: Path) -> None:
         handoff = tmp_path / "c1-t2.md"
-        assert read_offset(handoff) == 0
-        write_offset(handoff, 1234)
-        assert read_offset(handoff) == 1234
+        assert read_offset(handoff, "sess-1") == 0
+        write_offset(handoff, "sess-1", 1234)
+        assert read_offset(handoff, "sess-1") == 1234
 
     def test_it_hides_beside_the_handoff(self, tmp_path: Path) -> None:
         """`handoffs/` is git-excluded as a directory, so a dotfile in it is too."""
         handoff = tmp_path / "c1-t2.md"
-        write_offset(handoff, 5)
+        write_offset(handoff, "sess-1", 5)
         assert (tmp_path / ".c1-t2.offset").is_file()
 
     def test_an_unreadable_watermark_means_start_over(self, tmp_path: Path) -> None:
         handoff = tmp_path / "c1-t2.md"
         (tmp_path / ".c1-t2.offset").write_text("not a number", encoding="utf-8")
-        assert read_offset(handoff) == 0
+        assert read_offset(handoff, "sess-1") == 0
+
+    def test_another_sessions_watermark_is_not_applied(self, tmp_path: Path) -> None:
+        """A byte count only means something inside the file it was measured in.
+
+        Applying the old session's count to a new transcript skipped the start of
+        it, which in production hid an entire task from the write-up.
+        """
+        handoff = tmp_path / "c1-t2.md"
+        write_offset(handoff, "old-session", 9_000)
+
+        assert read_offset(handoff, "new-session") == 0
+
+    def test_a_legacy_bare_number_is_ignored(self, tmp_path: Path) -> None:
+        """Pre-2026-09 watermarks carry no id, so there is no telling whose they are."""
+        handoff = tmp_path / "c1-t2.md"
+        (tmp_path / ".c1-t2.offset").write_text("109231\n", encoding="utf-8")
+
+        assert read_offset(handoff, "sess-1") == 0

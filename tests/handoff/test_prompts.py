@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from phoenix_patchbay.handoff.prompts import (
+    _LOG_TAIL_ENTRIES,
     TEMPLATE,
     consolidation_prompt,
     external_consolidation_prompt,
@@ -46,11 +47,27 @@ def test_injection_is_framed_as_a_record_not_an_instruction() -> None:
     assert "ship the redesign" in block
 
 
-def test_injection_excludes_the_log() -> None:
-    block = injection_block("## Objective\nship it\n\n## Log\n- noisy raw line\n")
+def test_injection_carries_the_newest_log_entries() -> None:
+    """The current request lives only in the log until a consolidation runs.
+
+    Injecting the sections alone described last week's task, so a model switch
+    mid-task handed the new session a handoff that never mentioned the work.
+    """
+    block = injection_block(
+        "## Objective\nship it\n\n## Log\n- 09-15 18:14 - asked: build the anemia page\n"
+    )
 
     assert "ship it" in block
-    assert "noisy raw line" not in block
+    assert "build the anemia page" in block
+
+
+def test_injection_keeps_the_log_tail_short() -> None:
+    entries = "\n".join(f"- line {n}" for n in range(1, 21))
+    block = injection_block(f"## Objective\nship it\n\n## Log\n{entries}\n")
+
+    assert "- line 20" in block
+    assert "- line 1\n" not in block, "the whole log is injected at every boundary"
+    assert block.count("- line ") == _LOG_TAIL_ENTRIES
 
 
 def test_injection_of_an_empty_handoff_is_harmless() -> None:

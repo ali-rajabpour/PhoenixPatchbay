@@ -246,7 +246,9 @@ class TestWriterSelection:
     async def test_an_errored_writer_leaves_the_handoff_alone(self, tmp_path: Path) -> None:
         orch = _external_orch(tmp_path, result="quota exceeded")
         orch._cli_service.execute = AsyncMock(
-            return_value=SimpleNamespace(is_error=True, result="quota exceeded")
+            return_value=SimpleNamespace(
+                is_error=True, result="quota exceeded", returncode=1, timed_out=False
+            )
         )
 
         await _maybe_consolidate(orch, KEY)
@@ -259,7 +261,7 @@ class TestWriterSelection:
         handoff = tmp_path / "proj" / "handoffs" / "c1-t2.md"
         handoff.parent.mkdir(parents=True, exist_ok=True)
         session_dir = orch.paths.claude_home / "projects" / str(tmp_path / "proj").replace("/", "-")
-        write_offset(handoff, (session_dir / "sess-1.jsonl").stat().st_size)
+        write_offset(handoff, "sess-1", (session_dir / "sess-1.jsonl").stat().st_size)
 
         await _maybe_consolidate(orch, KEY)
 

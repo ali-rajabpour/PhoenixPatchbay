@@ -125,16 +125,38 @@ def offset_path(handoff: Path) -> Path:
     return handoff.with_name(f".{handoff.stem}.offset")
 
 
-def read_offset(handoff: Path) -> int:
+def read_offset(handoff: Path, session_id: str) -> int:
+    """The watermark for *session_id*, or 0 when it belongs to another session.
+
+    A conversation has one handoff but many sessions over its life: every
+    compaction, provider switch and daily reset starts a new transcript. A bare
+    byte count is only meaningful inside the file it was measured in, so the id
+    is stored beside it and a mismatch means "read this one from the start".
+
+    Without the id the count was applied to whichever transcript came next,
+    which silently skipped the first N bytes of a new session. In production it
+    meant a write-up read two messages of a fresh session while the work it was
+    supposed to record sat in the previous one.
+    """
     try:
-        return int(offset_path(handoff).read_text(encoding="utf-8").strip())
-    except (OSError, ValueError):
+        raw = offset_path(handoff).read_text(encoding="utf-8").strip()
+    except OSError:
+        return 0
+    recorded_id, _, recorded_offset = raw.partition(" ")
+    # A bare number is the pre-2026-09 format: no id, so no way to tell which
+    # transcript it counted. Re-reading costs a repeated slice; trusting it
+    # costs the slice that mattered.
+    if not recorded_offset or recorded_id != session_id:
+        return 0
+    try:
+        return int(recorded_offset)
+    except ValueError:
         return 0
 
 
-def write_offset(handoff: Path, offset: int) -> None:
+def write_offset(handoff: Path, session_id: str, offset: int) -> None:
     """Record the watermark. Failure costs a repeated slice, never a lost one."""
     try:
-        offset_path(handoff).write_text(f"{offset}\n", encoding="utf-8")
+        offset_path(handoff).write_text(f"{session_id} {offset}\n", encoding="utf-8")
     except OSError as exc:
         logger.warning("Cannot record handoff offset for %s: %s", handoff, exc)

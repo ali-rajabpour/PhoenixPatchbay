@@ -71,6 +71,8 @@ async def cmd_compact(orch: Orchestrator, key: SessionKey, _text: str) -> Orches
     await orch._process_registry.kill_by_chat_topic(key.chat_id, key.topic_id)
     await orch.reset_active_provider_session(key)
     orch.reinject.mark(key)
+    # Compacting by hand settles any switch waiting for the next message.
+    orch.pending_switch.clear(key)
     return OrchestratorResult(text=t("handoff.compacted"))
 
 
@@ -93,6 +95,7 @@ async def cmd_clear(orch: Orchestrator, key: SessionKey, _text: str) -> Orchestr
     orch.personas.clear(key.storage_key)
     await orch._process_registry.kill_by_chat_topic(key.chat_id, key.topic_id)
     await orch.reset_active_provider_session(key)
+    orch.pending_switch.clear(key)
     return OrchestratorResult(text=t("handoff.cleared"))
 
 

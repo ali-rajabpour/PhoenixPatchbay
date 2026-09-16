@@ -2174,7 +2174,13 @@ class TelegramBot:
             await edit_selector_response(self._bot, key.chat_id, message_id, resp)
             return
 
+        previous = self._orch.personas.get(key.storage_key)
         self._orch.personas.set(key.storage_key, chosen)
+        if previous and chosen and previous != chosen:
+            # A real change of persona, not a first answer: the session ahead
+            # was written under the old one. Compacting happens on the next
+            # message, not here, so browsing the picker costs nothing.
+            self._orch.pending_switch.mark(key, f"persona {previous} -> {chosen}")
         label = chosen or t("persona.default_label")
         with contextlib.suppress(TelegramBadRequest):
             await self._bot.edit_message_text(

@@ -24,6 +24,7 @@ from phoenix_patchbay.errors import (
     WebhookError,
     WorkspaceError,
 )
+from phoenix_patchbay.handoff.pending_switch import PendingSwitches
 from phoenix_patchbay.handoff.reinject import ReinjectFlags
 from phoenix_patchbay.handoff.store import HandoffStore
 from phoenix_patchbay.infra.docker import DockerManager
@@ -188,6 +189,7 @@ class Orchestrator:
         self._bindings = BindingStore(paths.patchbay_home / "topic_bindings.json")
         self._handoffs = HandoffStore(paths)
         self._reinject = ReinjectFlags()
+        self._pending_switch = PendingSwitches()
         self._cli_service.set_working_dir_resolver(self._resolve_request_working_dir)
         self._cli_service.set_persona_resolver(self._resolve_request_persona)
         self._cli_service.set_settings_resolver(self._resolve_request_settings)
@@ -331,6 +333,11 @@ class Orchestrator:
     def reinject(self) -> ReinjectFlags:
         """Conversations owed a handoff re-injection after a compaction."""
         return self._reinject
+
+    @property
+    def pending_switch(self) -> PendingSwitches:
+        """Conversations that changed model or persona and have not spoken since."""
+        return self._pending_switch
 
     @property
     def paths(self) -> PatchbayPaths:

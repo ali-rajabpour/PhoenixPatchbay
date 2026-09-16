@@ -147,6 +147,8 @@ async def _prepare_normal(
 
     Returns (request, session) so the caller can update the session after the CLI call.
     """
+    await _compact_after_switch(orch, key)
+
     requested_model = model_override or orch._config.model
     req_model, req_provider = orch.resolve_runtime_target(requested_model)
     requested_effort = orch._config.reasoning_effort
@@ -285,15 +287,60 @@ HANDOFF_WRITER_LABEL = "handoff_consolidation"
 _CONSOLIDATE_AFTER_LOG_LINES = 3
 
 
-async def consolidate_handoff(orch: Orchestrator, key: SessionKey) -> bool:
+async def _compact_after_switch(orch: Orchestrator, key: SessionKey) -> None:
+    """At the first message after a model or persona switch, do what /compact does.
+
+    The switch itself only recorded the intent (see ``PendingSwitches``): a
+    picker is also how a mistap is corrected, and browsing models should not cost
+    a write-up or a live session. This is the point where the user has committed,
+    so the session that did the work is written up, ended, and the handoff is put
+    in front of whatever answers next.
+
+    Silent when there is nothing to carry: a conversation with no session has no
+    context to lose, and the turn should just run.
+    """
+    pending = orch.pending_switch.take(key)
+    if pending is None:
+        return
+
+    session = await orch._sessions.get_active(key)
+    # A model switch retargets the conversation at the tap, so the active session
+    # here is usually the new provider's empty one. The work is in the session
+    # recorded with the switch.
+    session_id = pending.session_id or (session.session_id if session else "")
+    if not session_id:
+        return
+
+    folder = orch.bindings.resolve(key.storage_key)
+    logger.info(
+        "Compacting after switch (%s) chat=%d topic=%s", pending.reason, key.chat_id, key.topic_id
+    )
+    await consolidate_handoff(orch, key, session_id=session_id)
+
+    if not orch.handoffs.has_content(key, folder):
+        # Same rule as /compact: ending a session with no handoff is just losing
+        # the conversation. Leave it alone and let the turn continue.
+        logger.warning("Switch compaction produced no handoff chat=%d; session kept", key.chat_id)
+        return
+
+    await orch._process_registry.kill_by_chat_topic(key.chat_id, key.topic_id)
+    await orch.reset_active_provider_session(key)
+    orch.reinject.mark(key)
+
+
+async def consolidate_handoff(
+    orch: Orchestrator, key: SessionKey, *, session_id: str | None = None
+) -> bool:
     """Write the handoff up properly, on whichever writer is configured.
 
     Best effort by design: a consolidation that fails must not block the user,
     and the previous handoff stays on disk either way — the store refuses to
     replace a good file with an empty one.
     """
-    session = await orch._sessions.get_active(key)
-    if session is None or not session.session_id:
+    if session_id is None:
+        session = await orch._sessions.get_active(key)
+        session_id = session.session_id if session is not None else ""
+    if not session_id:
         return False
 
     # Before the rewrite, not after: consolidation is where detail is dropped,
@@ -301,13 +348,11 @@ async def consolidate_handoff(orch: Orchestrator, key: SessionKey) -> bool:
     orch.handoffs.append_revision(key, orch.bindings.resolve(key.storage_key), "consolidation")
 
     if orch._config.gemini_api_key:
-        return await _consolidate_externally(orch, key, session)
-    return await _consolidate_in_session(orch, key, session)
+        return await _consolidate_externally(orch, key, session_id)
+    return await _consolidate_in_session(orch, key, session_id)
 
 
-async def _consolidate_in_session(
-    orch: Orchestrator, key: SessionKey, session: SessionData
-) -> bool:
+async def _consolidate_in_session(orch: Orchestrator, key: SessionKey, session_id: str) -> bool:
     """Resume the conversation and ask it to write itself up.
 
     Cheap in tokens — the session is already cached — but it is billed to the
@@ -320,7 +365,7 @@ async def _consolidate_in_session(
         chat_id=key.chat_id,
         topic_id=key.topic_id,
         transport=key.transport,
-        resume_session=session.session_id,
+        resume_session=session_id,
         process_label=HANDOFF_WRITER_LABEL,
     )
     try:
@@ -331,9 +376,7 @@ async def _consolidate_in_session(
     return True
 
 
-async def _consolidate_externally(
-    orch: Orchestrator, key: SessionKey, session: SessionData
-) -> bool:
+async def _consolidate_externally(orch: Orchestrator, key: SessionKey, session_id: str) -> bool:
     """Hand the write-up to Gemini, so it is not billed to the coding session.
 
     Deliberately a *fresh* session: a Claude Code session has one writer, and a
@@ -348,9 +391,9 @@ async def _consolidate_externally(
     folder = orch.bindings.resolve(key.storage_key)
     handoff = handoff_file(key, folder, orch.paths)
     working_dir = str(folder) if folder is not None else str(orch.paths.workspace)
-    source = transcript_path(orch.paths.claude_home, working_dir, session.session_id)
+    source = transcript_path(orch.paths.claude_home, working_dir, session_id)
 
-    material = read_since(source, read_offset(handoff))
+    material = read_since(source, read_offset(handoff, session_id))
     if not material.text.strip():
         logger.info("Nothing new in the transcript; handoff left alone")
         return False
@@ -380,7 +423,16 @@ async def _consolidate_externally(
         return False
 
     if response.is_error:
-        logger.warning("External handoff write-up errored chat=%d: %s", key.chat_id, response.result[:200])
+        # The reason used to be dropped here: an empty result logged an empty
+        # message, and a 403 from the write-up provider looked like silence.
+        detail = (response.result or "").strip()[:300] or "(no output from the provider CLI)"
+        logger.warning(
+            "External handoff write-up errored chat=%d rc=%s timed_out=%s: %s",
+            key.chat_id,
+            response.returncode,
+            response.timed_out,
+            detail,
+        )
         return False
 
     answer, unknown = restore(_strip_fence(response.result), literals)
@@ -399,12 +451,12 @@ async def _consolidate_externally(
         # The first is settled — advance past material already judged — and the
         # second is not, so leave the watermark and let the next pass retry.
         if answer.strip() == NOTHING_TO_RECORD:
-            write_offset(handoff, material.offset)
+            write_offset(handoff, session_id, material.offset)
         return False
 
     if not orch.handoffs.write(key, folder, document):
         return False
-    write_offset(handoff, material.offset)
+    write_offset(handoff, session_id, material.offset)
     return True
 
 

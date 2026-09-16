@@ -529,6 +529,14 @@ async def switch_model(
                 update_agent_fields, agents_path, agent_name, **registry_updates
             )
 
+    if not same_model:
+        # Not compacted here on purpose. A picker is also how a mistap gets
+        # corrected, and writing the handoff up on the tap would spend a model
+        # turn and end a live session the user never meant to leave. The next
+        # message they actually send is what pays for it; see PendingSwitches.
+        outgoing, _ = _resume_state_for_provider(active_session, old_provider)
+        orch.pending_switch.mark(key, f"model {old} -> {model_id}", outgoing)
+
     is_busy = orch.is_chat_busy(key.chat_id, key.topic_id)
     logger.info("Model switch model=%s provider=%s", model_id, orch._config.provider)
 

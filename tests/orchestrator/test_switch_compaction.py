@@ -16,7 +16,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 from phoenix_patchbay.handoff.pending_switch import PendingSwitches
 from phoenix_patchbay.handoff.reinject import ReinjectFlags
-from phoenix_patchbay.orchestrator.flows import _compact_after_switch, _consolidate_externally
+from phoenix_patchbay.orchestrator.flows import (
+    _compact_after_switch,
+    _consolidate_externally,
+    _WriteUp,
+)
 from phoenix_patchbay.session.key import SessionKey
 
 if TYPE_CHECKING:
@@ -38,6 +42,10 @@ def _orch(tmp_path: Path, *, active_session_id: str = "", has_content: bool = Tr
     orch._process_registry.kill_by_chat_topic = AsyncMock()
     orch.reset_active_provider_session = AsyncMock()
     orch.paths.patchbay_home = tmp_path
+    # No transcript under these, so the off-session writers fall through to the
+    # in-session one, which is what these tests are about.
+    orch.paths.claude_home = tmp_path / "claude"
+    orch.paths.workspace = tmp_path / "ws"
     orch._config.gemini_api_key = None
     return orch
 
@@ -134,7 +142,10 @@ class TestFailureIsExplained:
         )
 
         with caplog.at_level(logging.WARNING):
-            assert not await _consolidate_externally(orch, KEY, "sess-1")
+            outcome = await _consolidate_externally(
+                orch, KEY, "sess-1", provider="gemini", model="gemini-3.5-flash-lite"
+            )
+        assert outcome is _WriteUp.FAILED
 
         message = " ".join(record.getMessage() for record in caplog.records)
         assert "rc=1" in message

@@ -20,6 +20,7 @@ import pytest
 from phoenix_patchbay.handoff.transcript import write_offset
 from phoenix_patchbay.orchestrator.flows import (
     _CONSOLIDATE_AFTER_LOG_LINES,
+    HANDOFF_WRITER_FALLBACK_MODEL,
     HANDOFF_WRITER_MODEL,
     _maybe_consolidate,
 )
@@ -41,6 +42,10 @@ def _orch(
     orch._sessions.get_active = AsyncMock(return_value=session)
     orch._cli_service.execute = AsyncMock(return_value=SimpleNamespace(is_error=False))
     orch.paths.patchbay_home = tmp_path
+    # Real paths with no transcript in them: the off-session writers cannot read
+    # the conversation, so these exercise the in-session fallback.
+    orch.paths.claude_home = tmp_path / "claude"
+    orch.paths.workspace = tmp_path / "ws"
     # A MagicMock attribute is truthy, and truthy here means "use Gemini".
     # Say no explicitly so these stay tests of the in-session path.
     orch._config.gemini_api_key = None
@@ -151,7 +156,7 @@ Keep rates.py correct.
 """
 
 
-def _external_orch(tmp_path: Path, *, result: str, api_key: str = "AIza-test") -> MagicMock:
+def _external_orch(tmp_path: Path, *, result: str, api_key: str | None = "AIza-test") -> MagicMock:
     """An orchestrator configured to hand the write-up to Gemini."""
     orch = _orch(tmp_path, pending_lines=_CONSOLIDATE_AFTER_LOG_LINES)
     orch._config.gemini_api_key = api_key
@@ -168,7 +173,9 @@ def _external_orch(tmp_path: Path, *, result: str, api_key: str = "AIza-test") -
     session_dir = orch.paths.claude_home / "projects" / str(tmp_path / "proj").replace("/", "-")
     session_dir.mkdir(parents=True, exist_ok=True)
     (session_dir / "sess-1.jsonl").write_text(
-        json.dumps({"type": "user", "message": {"content": [{"type": "text", "text": "do a thing"}]}})
+        json.dumps(
+            {"type": "user", "message": {"content": [{"type": "text", "text": "do a thing"}]}}
+        )
         + "\n",
         encoding="utf-8",
     )
@@ -177,15 +184,59 @@ def _external_orch(tmp_path: Path, *, result: str, api_key: str = "AIza-test") -
 
 class TestWriterSelection:
     @pytest.mark.asyncio
-    async def test_without_a_key_the_session_writes_itself_up(self, tmp_path: Path) -> None:
-        orch = _orch(tmp_path, pending_lines=_CONSOLIDATE_AFTER_LOG_LINES)
-        orch._config.gemini_api_key = None
+    async def test_without_a_key_haiku_writes_it_up_off_session(self, tmp_path: Path) -> None:
+        """No Gemini key is no reason to bill the coding model for bookkeeping."""
+        orch = _external_orch(tmp_path, result=HANDOFF_DOC, api_key=None)
 
         await _maybe_consolidate(orch, KEY)
 
         request = orch._cli_service.execute.await_args.args[0]
-        assert request.resume_session == "sess-1"
-        assert request.provider_override is None
+        assert request.provider_override == "claude"
+        assert request.model_override == HANDOFF_WRITER_FALLBACK_MODEL
+        assert request.resume_session is None, "off-session, so it stays out of the context"
+
+    @pytest.mark.asyncio
+    async def test_a_failed_gemini_falls_back_to_haiku(self, tmp_path: Path) -> None:
+        """A revoked key or a denied project must not cost the handoff."""
+        orch = _external_orch(tmp_path, result=HANDOFF_DOC)
+        orch._cli_service.execute = AsyncMock(
+            side_effect=[
+                SimpleNamespace(is_error=True, result="403 denied", returncode=1, timed_out=False),
+                SimpleNamespace(is_error=False, result=HANDOFF_DOC),
+            ]
+        )
+
+        await _maybe_consolidate(orch, KEY)
+
+        first, second = [c.args[0] for c in orch._cli_service.execute.await_args_list]
+        assert first.provider_override == "gemini"
+        assert second.provider_override == "claude"
+        assert second.model_override == HANDOFF_WRITER_FALLBACK_MODEL
+        orch.handoffs.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_nothing_to_record_does_not_pay_a_second_model(self, tmp_path: Path) -> None:
+        """ "Nothing to say" is an answer, not a failure to retry elsewhere."""
+        orch = _external_orch(tmp_path, result="NOTHING TO RECORD")
+
+        await _maybe_consolidate(orch, KEY)
+
+        assert orch._cli_service.execute.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_the_session_writes_itself_up_only_as_a_last_resort(self, tmp_path: Path) -> None:
+        orch = _external_orch(tmp_path, result=HANDOFF_DOC)
+        orch._cli_service.execute = AsyncMock(
+            return_value=SimpleNamespace(
+                is_error=True, result="down", returncode=1, timed_out=False
+            )
+        )
+
+        await _maybe_consolidate(orch, KEY)
+
+        last = orch._cli_service.execute.await_args_list[-1].args[0]
+        assert last.resume_session == "sess-1", "the session itself is the final fallback"
+        assert last.provider_override is None
 
     @pytest.mark.asyncio
     async def test_with_a_key_gemini_writes_it_up_instead(self, tmp_path: Path) -> None:
@@ -204,9 +255,7 @@ class TestWriterSelection:
         assert "do a thing" in request.prompt, "the writer was sent no material"
 
     @pytest.mark.asyncio
-    async def test_the_document_is_written_by_us_not_by_the_model(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_the_document_is_written_by_us_not_by_the_model(self, tmp_path: Path) -> None:
         """A model asked to edit a file can fail in ways that look like success."""
         orch = _external_orch(tmp_path, result=HANDOFF_DOC)
 
@@ -336,9 +385,7 @@ class TestLiteralProtection:
     """The writer never sees the strings it used to mistype."""
 
     @pytest.mark.asyncio
-    async def test_the_prompt_carries_placeholders_not_the_url(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_the_prompt_carries_placeholders_not_the_url(self, tmp_path: Path) -> None:
         orch = _external_orch(tmp_path, result=HANDOFF_DOC)
         url = "https://salampolyclinic.om/ar/علاج-تساقط-الشعر-لدى-النساء/"
         session_dir = orch.paths.claude_home / "projects" / str(tmp_path / "proj").replace("/", "-")

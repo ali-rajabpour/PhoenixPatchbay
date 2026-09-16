@@ -9,6 +9,7 @@ import signal
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import Enum, auto
 from typing import TYPE_CHECKING
 
 from phoenix_patchbay.cli.stream_events import ToolUseEvent
@@ -274,6 +275,18 @@ async def _prepare_normal(
 #: was that week.
 HANDOFF_WRITER_MODEL = "gemini-3.5-flash-lite"
 
+#: The writer used when Gemini is unavailable: no key configured, or the call
+#: failed (a revoked key, a denied project, an outage).
+#:
+#: Haiku rather than the session's own model, and off-session rather than a
+#: resume, so the fallback keeps both properties that make the Gemini path worth
+#: having: the write-up is not billed at coding-model prices, and its output
+#: never joins the context it is summarising. It costs roughly a tenth of the
+#: in-session write-up it replaces while reading exactly the same transcript
+#: slice. The in-session writer remains the last resort, for when no CLI can
+#: produce the document at all.
+HANDOFF_WRITER_FALLBACK_MODEL = "haiku"
+
 #: Process label for the write-up call. Named because two other modules key
 #: behaviour off it: the working-directory resolver keeps the writer out of
 #: the user's repository, and the tests filter it out of CLI call counts.
@@ -348,8 +361,41 @@ async def consolidate_handoff(
     orch.handoffs.append_revision(key, orch.bindings.resolve(key.storage_key), "consolidation")
 
     if orch._config.gemini_api_key:
-        return await _consolidate_externally(orch, key, session_id)
+        outcome = await _consolidate_externally(
+            orch, key, session_id, provider="gemini", model=HANDOFF_WRITER_MODEL
+        )
+        if outcome is not _WriteUp.FAILED:
+            return outcome is _WriteUp.WROTE
+        logger.warning(
+            "Gemini write-up unavailable chat=%d; falling back to %s",
+            key.chat_id,
+            HANDOFF_WRITER_FALLBACK_MODEL,
+        )
+
+    # No Gemini key, or Gemini could not do it. Same off-session write-up on a
+    # cheap Claude model, so a broken key does not silently cost coding-model
+    # tokens and push the write-up back into the session's own context.
+    outcome = await _consolidate_externally(
+        orch, key, session_id, provider="claude", model=HANDOFF_WRITER_FALLBACK_MODEL
+    )
+    if outcome is not _WriteUp.FAILED:
+        return outcome is _WriteUp.WROTE
+
+    logger.warning("Off-session write-up failed chat=%d; resuming the session instead", key.chat_id)
     return await _consolidate_in_session(orch, key, session_id)
+
+
+class _WriteUp(Enum):
+    """What an off-session write-up attempt achieved.
+
+    Failure has to be distinguishable from "there was nothing to record":
+    falling back to a second model because the transcript was empty would pay
+    twice to be told the same thing.
+    """
+
+    WROTE = auto()
+    NOTHING = auto()
+    FAILED = auto()
 
 
 async def _consolidate_in_session(orch: Orchestrator, key: SessionKey, session_id: str) -> bool:
@@ -376,8 +422,10 @@ async def _consolidate_in_session(orch: Orchestrator, key: SessionKey, session_i
     return True
 
 
-async def _consolidate_externally(orch: Orchestrator, key: SessionKey, session_id: str) -> bool:
-    """Hand the write-up to Gemini, so it is not billed to the coding session.
+async def _consolidate_externally(
+    orch: Orchestrator, key: SessionKey, session_id: str, *, provider: str, model: str
+) -> _WriteUp:
+    """Hand the write-up to another model, so it is not billed to the coding session.
 
     Deliberately a *fresh* session: a Claude Code session has one writer, and a
     second process resuming it while the user is typing would collide. The
@@ -393,10 +441,17 @@ async def _consolidate_externally(orch: Orchestrator, key: SessionKey, session_i
     working_dir = str(folder) if folder is not None else str(orch.paths.workspace)
     source = transcript_path(orch.paths.claude_home, working_dir, session_id)
 
+    if not source.is_file():
+        # Not the same as an empty slice: the conversation exists, we just cannot
+        # see it from here. Reporting "nothing to record" would skip the write-up
+        # for good, so say it failed and let the next writer try.
+        logger.warning("No transcript at %s; off-session write-up cannot read it", source)
+        return _WriteUp.FAILED
+
     material = read_since(source, read_offset(handoff, session_id))
     if not material.text.strip():
         logger.info("Nothing new in the transcript; handoff left alone")
-        return False
+        return _WriteUp.NOTHING
 
     # Lift URLs and non-Latin strings out before the model sees them: it has no
     # reason to retype a URL and, once in production, dropped a character from
@@ -411,31 +466,16 @@ async def _consolidate_externally(orch: Orchestrator, key: SessionKey, session_i
         chat_id=key.chat_id,
         topic_id=key.topic_id,
         transport=key.transport,
-        provider_override="gemini",
-        model_override=HANDOFF_WRITER_MODEL,
+        provider_override=provider,
+        model_override=model,
         resume_session=None,
         process_label=HANDOFF_WRITER_LABEL,
     )
-    try:
-        response = await orch._cli_service.execute(request)
-    except (CLIError, RuntimeError, OSError) as exc:
-        logger.warning("External handoff write-up failed chat=%d: %s", key.chat_id, exc)
-        return False
+    raw = await _run_writer(orch, key, request, model)
+    if raw is None:
+        return _WriteUp.FAILED
 
-    if response.is_error:
-        # The reason used to be dropped here: an empty result logged an empty
-        # message, and a 403 from the write-up provider looked like silence.
-        detail = (response.result or "").strip()[:300] or "(no output from the provider CLI)"
-        logger.warning(
-            "External handoff write-up errored chat=%d rc=%s timed_out=%s: %s",
-            key.chat_id,
-            response.returncode,
-            response.timed_out,
-            detail,
-        )
-        return False
-
-    answer, unknown = restore(_strip_fence(response.result), literals)
+    answer, unknown = restore(_strip_fence(raw), literals)
     if unknown:
         # Left visible rather than deleted: a stray [[L9]] gets reported, while
         # a silently dropped one leaves a sentence that reads fine and lies.
@@ -450,14 +490,48 @@ async def _consolidate_externally(orch: Orchestrator, key: SessionKey, session_i
         # Either nothing worth recording, or an answer that is not a handoff.
         # The first is settled — advance past material already judged — and the
         # second is not, so leave the watermark and let the next pass retry.
-        if answer.strip() == NOTHING_TO_RECORD:
+        settled = answer.strip() == NOTHING_TO_RECORD
+        if settled:
             write_offset(handoff, session_id, material.offset)
-        return False
+        return _WriteUp.NOTHING if settled else _WriteUp.FAILED
 
     if not orch.handoffs.write(key, folder, document):
-        return False
+        return _WriteUp.FAILED
     write_offset(handoff, session_id, material.offset)
-    return True
+    return _WriteUp.WROTE
+
+
+async def _run_writer(
+    orch: Orchestrator, key: SessionKey, request: AgentRequest, model: str
+) -> str | None:
+    """Run one write-up call. None when the provider produced nothing usable.
+
+    Failure is reported here, with the model named, because the same request is
+    tried on more than one provider and "it errored" is useless without knowing
+    which one errored.
+    """
+    try:
+        response = await orch._cli_service.execute(request)
+    except (CLIError, RuntimeError, OSError) as exc:
+        logger.warning(
+            "External handoff write-up failed chat=%d on %s: %s", key.chat_id, model, exc
+        )
+        return None
+
+    if response.is_error:
+        # The reason used to be dropped here: an empty result logged an empty
+        # message, and a 403 from the write-up provider looked like silence.
+        detail = (response.result or "").strip()[:300] or "(no output from the provider CLI)"
+        logger.warning(
+            "External handoff write-up errored chat=%d on %s rc=%s timed_out=%s: %s",
+            key.chat_id,
+            model,
+            response.returncode,
+            response.timed_out,
+            detail,
+        )
+        return None
+    return response.result
 
 
 def _usable_handoff(result: str) -> str | None:

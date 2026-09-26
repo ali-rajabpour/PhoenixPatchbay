@@ -22,6 +22,7 @@ from phoenix_patchbay.cli.base import (
     run_as_wrap,
 )
 from phoenix_patchbay.cli.claude_accounts import apply_to_env as apply_account_env
+from phoenix_patchbay.cli.claude_accounts import apply_token_to_env
 from phoenix_patchbay.cli.stream_events import ResultEvent, StreamEvent
 from phoenix_patchbay.cli.timeout_controller import TimeoutController
 from phoenix_patchbay.cli.types import CLIResponse, task_id_from_label
@@ -85,11 +86,20 @@ def build_subprocess_env(config: CLIConfig) -> dict[str, str] | None:
     # empty string would NOT be equivalent — Claude Code reads empty as
     # ``~/.claude`` and would ignore a custom CLAUDE_CONFIG_DIR.
     apply_account_env(env, config.claude_account_dir)
-    if config.provider == "9router":
+    _apply_provider_env(env, config)
+    return env
+
+
+def _apply_provider_env(env: dict[str, str], config: CLIConfig) -> None:
+    """Credentials that belong to one provider rather than to every run."""
+    if config.provider == "claude":
+        # One login for every topic, including the ones run as another unix
+        # account, which cannot read this account's credential file.
+        apply_token_to_env(env, config.claude_account_dir)
+    elif config.provider == "9router":
         from phoenix_patchbay.cli.ninerouter import apply_to_env as apply_ninerouter_env
 
         apply_ninerouter_env(env)
-    return env
 
 
 @dataclass(slots=True)

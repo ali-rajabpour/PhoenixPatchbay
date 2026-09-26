@@ -42,6 +42,7 @@ from phoenix_patchbay.orchestrator.commands import (
     cmd_effort,
     cmd_folder,
     cmd_handoff,
+    cmd_login,
     cmd_memory,
     cmd_model,
     cmd_persona,
@@ -66,6 +67,7 @@ from phoenix_patchbay.orchestrator.hooks import (
     MAINMEMORY_REMINDER,
     MessageHookRegistry,
 )
+from phoenix_patchbay.orchestrator.login import LoginFlows
 from phoenix_patchbay.orchestrator.memory_flush import MemoryFlusher
 from phoenix_patchbay.orchestrator.observers import ObserverManager
 from phoenix_patchbay.orchestrator.providers import ProviderManager
@@ -190,6 +192,7 @@ class Orchestrator:
         self._handoffs = HandoffStore(paths)
         self._reinject = ReinjectFlags()
         self._pending_switch = PendingSwitches()
+        self._logins = LoginFlows()
         self._cli_service.set_working_dir_resolver(self._resolve_request_working_dir)
         self._cli_service.set_persona_resolver(self._resolve_request_persona)
         self._cli_service.set_settings_resolver(self._resolve_request_settings)
@@ -463,7 +466,8 @@ class Orchestrator:
             logger.warning("Suspicious input patterns: %s", ", ".join(patterns))
 
         try:
-            return await self._route_message(dispatch)
+            login = await self._login_reply(dispatch)
+            return login if login is not None else await self._route_message(dispatch)
         except asyncio.CancelledError:
             raise
         except (CLIError, StreamError, SessionError, CronError, WebhookError, WorkspaceError):
@@ -472,6 +476,16 @@ class Orchestrator:
         except (OSError, RuntimeError, ValueError, TypeError, KeyError):
             logger.exception("Unexpected error in handle_message")
             return OrchestratorResult(text="An internal error occurred. Please try again.")
+
+    async def _login_reply(self, dispatch: _MessageDispatch) -> OrchestratorResult | None:
+        """The reply when a login is waiting for this message as its code.
+
+        Commands are left alone, so /login cancel and everything else still run.
+        """
+        if dispatch.cmd.startswith("/"):
+            return None
+        reply = await self._logins.submit(dispatch.key, dispatch.text)
+        return OrchestratorResult(text=reply) if reply is not None else None
 
     async def _route_message(self, dispatch: _MessageDispatch) -> OrchestratorResult:
         result = await self._command_registry.dispatch(
@@ -550,6 +564,8 @@ class Orchestrator:
         reg.register_async("/skills ", cmd_skills)
         reg.register_async("/account", cmd_account)
         reg.register_async("/account ", cmd_account)
+        reg.register_async("/login", cmd_login)
+        reg.register_async("/login ", cmd_login)
         reg.register_async("/memory", cmd_memory)
         reg.register_async("/persona", cmd_persona)
         reg.register_async("/plugins", cmd_plugins)

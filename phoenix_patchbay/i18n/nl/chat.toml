@@ -480,6 +480,30 @@ switched = "Overgeschakeld naar Claude-account **{account}**. Geldt vanaf het vo
 switched_docker_warning = "Overgeschakeld naar Claude-account **{account}**, maar de Docker-sandboxmodus is ingeschakeld en koppelt de inloggegevens niet in de container."
 unknown = "Onbekend Claude-account `{account}`. Geconfigureerd: {known}"
 
+[login]
+list = """**Inloggen** — kies een aanbieder:
+
+{providers}
+
+Aanbieders die alleen een sleutel nodig hebben, zoals 9router, stel je in via /settings."""
+unknown = """Onbekende aanbieder `{provider}`.
+
+{list}"""
+failed = "Inloggen mislukt: {reason}"
+cancelled = "Inloggen geannuleerd."
+none_pending = "Er wacht geen login op een code."
+unsupported = "Inloggen vanuit de chat wordt op dit platform niet ondersteund. Voer in plaats daarvan `claude setup-token` uit in een terminal."
+
+[login.claude]
+label = "Claude (abonnementslogin)"
+started = """**Claude-login**
+
+1. Open deze link en log in:
+{url}
+
+2. Antwoord hier met de code die de pagina toont. Hij is 10 minuten geldig; /login cancel stopt het."""
+saved = "Claude is ingelogd. Eén login geldt voor elk onderwerp, ook Consult. Hij duurt ongeveer een jaar; vernieuw met /login claude."
+
 [skills]
 builtin_note = "_Claude's eigen ingebouwde skills staan hier niet — die zitten in het binaire bestand en laden automatisch._"
 header = "**Skills** — {total} beschikbaar in {groups} groepen"

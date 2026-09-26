@@ -479,6 +479,30 @@ switched = "Beralih ke akun Claude **{account}**. Berlaku mulai pesan berikutnya
 switched_docker_warning = "Beralih ke akun Claude **{account}**, tetapi mode sandbox Docker aktif dan tidak memasang penyimpanan kredensial ke dalam kontainer."
 unknown = "Akun Claude `{account}` tidak dikenal. Terkonfigurasi: {known}"
 
+[login]
+list = """**Masuk** — pilih penyedia:
+
+{providers}
+
+Penyedia yang hanya butuh kunci, seperti 9router, diatur di /settings."""
+unknown = """Penyedia tidak dikenal `{provider}`.
+
+{list}"""
+failed = "Masuk gagal: {reason}"
+cancelled = "Proses masuk dibatalkan."
+none_pending = "Tidak ada proses masuk yang menunggu kode."
+unsupported = "Masuk dari chat tidak didukung di platform ini. Jalankan `claude setup-token` di terminal."
+
+[login.claude]
+label = "Claude (masuk dengan langganan)"
+started = """**Masuk ke Claude**
+
+1. Buka tautan ini dan masuk:
+{url}
+
+2. Balas di sini dengan kode yang ditampilkan halaman. Berlaku 10 menit; /login cancel menghentikannya."""
+saved = "Claude sudah masuk. Satu kali masuk berlaku untuk semua topik, termasuk Consult. Bertahan sekitar setahun; perbarui dengan /login claude."
+
 [skills]
 builtin_note = "_Skill bawaan Claude tidak tercantum di sini — ada di dalam biner dan dimuat otomatis._"
 header = "**Skill** — {total} tersedia dalam {groups} grup"

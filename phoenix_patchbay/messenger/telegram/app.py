@@ -183,7 +183,7 @@ def _build_help_text() -> str:
         f"{t('help.cat_daily')}\n{_help_line('clear')}\n{_help_line('compact')}\n"
         f"{_help_line('handoff')}\n{_help_line('stop')}\n"
         f"{_help_line('interrupt')}\n{_help_line('stop_all')}\n"
-        f"{_help_line('model')}\n{_help_line('effort')}\n{_help_line('account')}\n"
+        f"{_help_line('model')}\n{_help_line('effort')}\n{_help_line('account')}\n{_help_line('login')}\n"
         f"{_help_line('persona')}\n{_help_line('plugins')}\n"
             f"{_help_line('folder')}\n{_help_line('consult')}\n"
         f"{_help_line('status')}\n{_help_line('memory')}",
@@ -516,6 +516,7 @@ class TelegramBot:
             "model",
             "effort",
             "account",
+            "login",
             "persona",
             "plugins",
             "folder",

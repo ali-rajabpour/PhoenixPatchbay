@@ -480,6 +480,30 @@ switched = "Zu Claude-Konto **{account}** gewechselt. Gilt ab der nächsten Nach
 switched_docker_warning = "Zu Claude-Konto **{account}** gewechselt, aber der Docker-Sandbox-Modus ist aktiv und bindet den Anmeldespeicher nicht in den Container ein."
 unknown = "Unbekanntes Claude-Konto `{account}`. Konfiguriert: {known}"
 
+[login]
+list = """**Anmelden** — Anbieter wählen:
+
+{providers}
+
+Anbieter, die nur einen Schlüssel brauchen, etwa 9router, werden in /settings gesetzt."""
+unknown = """Unbekannter Anbieter `{provider}`.
+
+{list}"""
+failed = "Anmeldung fehlgeschlagen: {reason}"
+cancelled = "Anmeldung abgebrochen."
+none_pending = "Keine Anmeldung wartet auf einen Code."
+unsupported = "Die Anmeldung im Chat wird auf dieser Plattform nicht unterstützt. Führe stattdessen `claude setup-token` in einem Terminal aus."
+
+[login.claude]
+label = "Claude (Abo-Anmeldung)"
+started = """**Claude-Anmeldung**
+
+1. Öffne diesen Link und melde dich an:
+{url}
+
+2. Antworte hier mit dem Code, den die Seite anzeigt. Er gilt 10 Minuten; /login cancel bricht ab."""
+saved = "Claude ist angemeldet. Eine Anmeldung gilt für jedes Thema, auch Consult. Sie hält etwa ein Jahr; erneuere sie mit /login claude."
+
 [skills]
 builtin_note = "_Claudes eigene eingebaute Skills sind hier nicht aufgeführt — sie stecken in der Binärdatei und laden automatisch._"
 header = "**Skills** — {total} verfügbar in {groups} Gruppen"

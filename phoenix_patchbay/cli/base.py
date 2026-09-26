@@ -196,7 +196,10 @@ def _docker_env_flags(
 #: Environment the dropped-to user still needs. PATH is passed explicitly
 #: because sudo replaces it with secure_path, which does not contain the npm
 #: prefix the CLIs are installed under.
-_RUN_AS_KEEP = ("PATH", "NODE_OPTIONS", "LANG", "LC_ALL")
+#: CLAUDE_CODE_OAUTH_TOKEN is the shared /login token; it reaches the dropped-to
+#: account on the ``env`` command line, as the rest does, because a hardened
+#: sudoers would not let it through env_keep.
+_RUN_AS_KEEP = ("PATH", "NODE_OPTIONS", "LANG", "LC_ALL", "CLAUDE_CODE_OAUTH_TOKEN")
 
 def run_as_wrap(cmd: list[str], config: CLIConfig, env: dict[str, str]) -> list[str]:
     """Prefix *cmd* so it runs as ``config.run_as_user``.

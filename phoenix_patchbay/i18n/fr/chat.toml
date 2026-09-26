@@ -480,6 +480,30 @@ switched = "Basculé sur le compte Claude **{account}**. Effectif dès le procha
 switched_docker_warning = "Basculé sur le compte Claude **{account}**, mais le mode bac à sable Docker est activé et ne monte pas le magasin d'identifiants dans le conteneur."
 unknown = "Compte Claude `{account}` inconnu. Configurés : {known}"
 
+[login]
+list = """**Connexion** — choisissez un fournisseur :
+
+{providers}
+
+Les fournisseurs qui n'ont besoin que d'une clé, comme 9router, se règlent dans /settings."""
+unknown = """Fournisseur inconnu `{provider}`.
+
+{list}"""
+failed = "Échec de la connexion : {reason}"
+cancelled = "Connexion annulée."
+none_pending = "Aucune connexion n'attend de code."
+unsupported = "La connexion depuis le chat n'est pas prise en charge sur cette plateforme. Lancez plutôt `claude setup-token` dans un terminal."
+
+[login.claude]
+label = "Claude (connexion par abonnement)"
+started = """**Connexion à Claude**
+
+1. Ouvrez ce lien et connectez-vous :
+{url}
+
+2. Répondez ici avec le code affiché par la page. Il est valable 10 minutes ; /login cancel l'arrête."""
+saved = "Claude est connecté. Une seule connexion sert pour tous les sujets, Consult compris. Elle dure environ un an ; renouvelez-la avec /login claude."
+
 [skills]
 builtin_note = "_Les skills intégrés de Claude ne figurent pas ici : ils sont dans le binaire et se chargent automatiquement._"
 header = "**Skills** — {total} disponibles dans {groups} groupes"

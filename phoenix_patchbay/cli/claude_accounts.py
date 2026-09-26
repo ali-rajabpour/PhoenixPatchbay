@@ -17,11 +17,20 @@ same config works on either host.
 
 from __future__ import annotations
 
+import contextlib
+import os
 from collections.abc import Mapping
 from pathlib import Path
 
 #: Environment variable Claude Code reads the credential-store path from.
 ENV_VAR = "CLAUDE_SECURESTORAGE_CONFIG_DIR"
+
+#: Environment variable Claude Code reads a long-lived OAuth token from. It
+#: takes precedence over the credential file, so the CLI never refreshes or
+#: rewrites that file, which is what lets every unix account share one login.
+TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"  # noqa: S105 - a variable name, not a secret
+#: Where /login keeps the token, inside the account's credential-store directory.
+TOKEN_FILE = ".patchbay_oauth_token"  # noqa: S105 - a file name, not a secret
 
 
 def resolve_account_dir(accounts: Mapping[str, str], active: str) -> str | None:
@@ -90,3 +99,48 @@ def active_claude_account_dir(config: object) -> str:
         )
         or ""
     )
+
+
+def token_path(account_dir: str | None) -> Path:
+    """Where the /login token for *account_dir* lives (default store when empty)."""
+    if account_dir:
+        return Path(account_dir).expanduser() / TOKEN_FILE
+    base = os.environ.get("CLAUDE_CONFIG_DIR", "").strip()
+    return (Path(base).expanduser() if base else Path.home() / ".claude") / TOKEN_FILE
+
+
+def read_token(account_dir: str | None) -> str:
+    """The saved /login token, or "" when there is none."""
+    try:
+        return token_path(account_dir).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def save_token(account_dir: str | None, token: str) -> Path:
+    """Write the token owner-only, replacing any earlier one."""
+    path = token_path(account_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(token + "\n")
+    tmp.replace(path)
+    return path
+
+
+def forget_token(account_dir: str | None) -> None:
+    """Remove the saved token, if any."""
+    with contextlib.suppress(OSError):
+        token_path(account_dir).unlink()
+
+
+def apply_token_to_env(env: dict[str, str], account_dir: str | None) -> dict[str, str]:
+    """Pass the /login token to the CLI, when one was saved.
+
+    Leaves *env* alone otherwise, so a token exported by hand, or a credential
+    file from an ordinary ``claude`` login, keeps working.
+    """
+    if token := read_token(account_dir):
+        env[TOKEN_ENV] = token
+    return env

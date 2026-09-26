@@ -481,6 +481,28 @@ switched = "Switched to Claude account **{account}**. It applies from the next m
 switched_docker_warning = "Switched to Claude account **{account}**, but Docker sandbox mode is enabled and does not map the credential store into the container."
 unknown = "Unknown Claude account `{account}`. Configured: {known}"
 
+[login]
+list = """**Log in** — pick a provider:
+
+{providers}
+
+Providers that only need a key, like 9router, are set in /settings."""
+unknown = "Unknown provider `{provider}`.\n\n{list}"
+failed = "Login failed: {reason}"
+cancelled = "Login cancelled."
+none_pending = "No login is waiting for a code."
+unsupported = "Logging in from the chat is not supported on this platform. Run `claude setup-token` in a terminal instead."
+
+[login.claude]
+label = "Claude (subscription sign-in)"
+started = """**Claude login**
+
+1. Open this link and sign in:
+{url}
+
+2. Reply here with the code the page shows. It is valid for 10 minutes; /login cancel stops it."""
+saved = "Claude is logged in. One login covers every topic, including Consult. It lasts about a year; run /login claude again to renew it."
+
 [skills]
 builtin_note = "_Claude's own built-in skills are not listed here — they live inside the binary and load automatically._"
 header = "**Skills** — {total} available across {groups} groups"

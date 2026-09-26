@@ -24,6 +24,7 @@ def get_bot_commands() -> list[tuple[str, str]]:
         ("model", t_cmd("bot.model")),
         ("effort", t_cmd("bot.effort")),
         ("account", t_cmd("bot.account")),
+        ("login", t_cmd("bot.login")),
         ("persona", t_cmd("bot.persona")),
         ("plugins", t_cmd("bot.plugins")),
         ("folder", t_cmd("bot.folder")),

@@ -144,6 +144,23 @@ async def cmd_account(orch: Orchestrator, _key: SessionKey, text: str) -> Orches
     return OrchestratorResult(text=await switch_account(orch, parts[1].strip()))
 
 
+async def cmd_login(orch: Orchestrator, key: SessionKey, text: str) -> OrchestratorResult:
+    """Handle /login [provider|cancel]: sign a provider's CLI in from the chat."""
+    from phoenix_patchbay.orchestrator.login import PROVIDERS, login_list
+
+    logger.info("Login requested")
+    parts = text.split(None, 1)
+    arg = parts[1].strip().lower() if len(parts) > 1 else ""
+    if not arg:
+        return OrchestratorResult(text=login_list())
+    if arg == "cancel":
+        stopped = orch._logins.cancel(key)
+        return OrchestratorResult(text=t("login.cancelled" if stopped else "login.none_pending"))
+    if arg not in PROVIDERS:
+        return OrchestratorResult(text=t("login.unknown", provider=arg, list=login_list()))
+    return OrchestratorResult(text=await orch._logins.begin(key, arg, orch))
+
+
 async def cmd_skills(orch: Orchestrator, _key: SessionKey, text: str) -> OrchestratorResult:
     """Handle /skills [name]: browse skills by plugin, or show one in full."""
     logger.info("Skills requested")

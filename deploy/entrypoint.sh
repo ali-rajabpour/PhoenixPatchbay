@@ -64,4 +64,8 @@ BANNER
     echo "patchbay: credentials found, starting"
 fi
 
+# Give the Consult account (if the image has one) access to those credentials.
+# Idempotent, and a failure must not stop the bot from starting.
+/usr/local/bin/patchbay-consult-access || true
+
 exec "$@"

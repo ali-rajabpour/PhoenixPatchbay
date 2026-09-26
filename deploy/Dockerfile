@@ -145,6 +145,7 @@ ENV HOME=/home/patchbay \
 # scripts they name. Copied at runtime, never on top of an existing file.
 COPY --chown=patchbay:patchbay deploy/seed /etc/patchbay/seed
 COPY --chmod=0755 deploy/entrypoint.sh /usr/local/bin/patchbay-entrypoint
+COPY --chmod=0755 deploy/consult-access.sh /usr/local/bin/patchbay-consult-access
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/patchbay-entrypoint"]
 CMD ["patchbay"]

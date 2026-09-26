@@ -106,6 +106,11 @@ docker compose build --no-cache && docker compose up -d
 `main`. Your config, credentials and projects are in the volume and survive a
 rebuild.
 
+The Consult topic runs the CLI as the `consult` account, which authenticates
+through a symlink to your credentials. That link lives in the image, so the
+entrypoint recreates it (and the group permissions) on every start; there is
+nothing to run by hand.
+
 ## Hardening worth doing
 
 - **Run Docker rootless.** Container root then maps to an unprivileged host

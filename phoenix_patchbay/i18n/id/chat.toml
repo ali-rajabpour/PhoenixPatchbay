@@ -492,16 +492,24 @@ failed = "Masuk gagal: {reason}"
 cancelled = "Proses masuk dibatalkan."
 none_pending = "Tidak ada proses masuk yang menunggu kode."
 unsupported = "Masuk dari chat tidak didukung di platform ini. Jalankan `claude setup-token` di terminal."
+choose = """**{provider}: pilih akun**
+
+{accounts}"""
+unknown_account = """Akun tidak dikenal `{account}`.
+
+{list}"""
+in_use = "dipakai"
+signed_in = "token tersimpan"
 
 [login.claude]
 label = "Claude (masuk dengan langganan)"
-started = """**Masuk ke Claude**
+started = """**Masuk ke Claude — {account}**
 
-1. Buka tautan ini dan masuk:
+1. Buka tautan ini dan masuk dengan akun Claude yang Anda inginkan untuk **{account}**:
 {url}
 
 2. Balas di sini dengan kode yang ditampilkan halaman. Berlaku 10 menit; /login cancel menghentikannya."""
-saved = "Claude sudah masuk. Satu kali masuk berlaku untuk semua topik, termasuk Consult. Bertahan sekitar setahun; perbarui dengan /login claude."
+saved = "Akun Claude **{account}** sudah masuk. Satu kali masuk berlaku untuk semua topik, termasuk Consult. Bertahan sekitar setahun; perbarui dengan /login claude {id}."
 
 [skills]
 builtin_note = "_Skill bawaan Claude tidak tercantum di sini — ada di dalam biner dan dimuat otomatis._"

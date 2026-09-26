@@ -145,20 +145,34 @@ async def cmd_account(orch: Orchestrator, _key: SessionKey, text: str) -> Orches
 
 
 async def cmd_login(orch: Orchestrator, key: SessionKey, text: str) -> OrchestratorResult:
-    """Handle /login [provider|cancel]: sign a provider's CLI in from the chat."""
-    from phoenix_patchbay.orchestrator.login import PROVIDERS, login_list
+    """Handle /login [provider [account]|cancel]: sign a provider's CLI in from the chat."""
+    from phoenix_patchbay.orchestrator.login import PROVIDERS, login_list, target_list
 
     logger.info("Login requested")
-    parts = text.split(None, 1)
-    arg = parts[1].strip().lower() if len(parts) > 1 else ""
-    if not arg:
+    parts = text.split()[1:]
+    name = parts[0].lower() if parts else ""
+    if not name:
         return OrchestratorResult(text=login_list())
-    if arg == "cancel":
+    if name == "cancel":
         stopped = orch._logins.cancel(key)
         return OrchestratorResult(text=t("login.cancelled" if stopped else "login.none_pending"))
-    if arg not in PROVIDERS:
-        return OrchestratorResult(text=t("login.unknown", provider=arg, list=login_list()))
-    return OrchestratorResult(text=await orch._logins.begin(key, arg, orch))
+    if name not in PROVIDERS:
+        return OrchestratorResult(text=t("login.unknown", provider=name, list=login_list()))
+
+    targets = PROVIDERS[name].targets(orch)
+    if len(parts) > 1:
+        wanted = parts[1].lower()
+        target = next((x for x in targets if x.id.lower() == wanted), None)
+        if target is None:
+            return OrchestratorResult(
+                text=t("login.unknown_account", account=parts[1], list=target_list(name, orch))
+            )
+    elif len(targets) == 1:
+        target = targets[0]
+    else:
+        # More than one account: never guess which one to sign in.
+        return OrchestratorResult(text=target_list(name, orch))
+    return OrchestratorResult(text=await orch._logins.begin(key, name, target, orch))
 
 
 async def cmd_skills(orch: Orchestrator, _key: SessionKey, text: str) -> OrchestratorResult:

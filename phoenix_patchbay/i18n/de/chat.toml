@@ -493,16 +493,24 @@ failed = "Anmeldung fehlgeschlagen: {reason}"
 cancelled = "Anmeldung abgebrochen."
 none_pending = "Keine Anmeldung wartet auf einen Code."
 unsupported = "Die Anmeldung im Chat wird auf dieser Plattform nicht unterstützt. Führe stattdessen `claude setup-token` in einem Terminal aus."
+choose = """**{provider}: Konto wählen**
+
+{accounts}"""
+unknown_account = """Unbekanntes Konto `{account}`.
+
+{list}"""
+in_use = "in Benutzung"
+signed_in = "Token gespeichert"
 
 [login.claude]
 label = "Claude (Abo-Anmeldung)"
-started = """**Claude-Anmeldung**
+started = """**Claude-Anmeldung — {account}**
 
-1. Öffne diesen Link und melde dich an:
+1. Öffne diesen Link und melde dich mit dem Claude-Konto an, das du für **{account}** willst:
 {url}
 
 2. Antworte hier mit dem Code, den die Seite anzeigt. Er gilt 10 Minuten; /login cancel bricht ab."""
-saved = "Claude ist angemeldet. Eine Anmeldung gilt für jedes Thema, auch Consult. Sie hält etwa ein Jahr; erneuere sie mit /login claude."
+saved = "Claude-Konto **{account}** ist angemeldet. Eine Anmeldung gilt für jedes Thema, auch Consult. Sie hält etwa ein Jahr; erneuere sie mit /login claude {id}."
 
 [skills]
 builtin_note = "_Claudes eigene eingebaute Skills sind hier nicht aufgeführt — sie stecken in der Binärdatei und laden automatisch._"

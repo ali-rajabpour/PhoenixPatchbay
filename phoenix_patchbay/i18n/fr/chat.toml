@@ -493,16 +493,24 @@ failed = "Échec de la connexion : {reason}"
 cancelled = "Connexion annulée."
 none_pending = "Aucune connexion n'attend de code."
 unsupported = "La connexion depuis le chat n'est pas prise en charge sur cette plateforme. Lancez plutôt `claude setup-token` dans un terminal."
+choose = """**{provider} : choisissez le compte**
+
+{accounts}"""
+unknown_account = """Compte inconnu `{account}`.
+
+{list}"""
+in_use = "utilisé"
+signed_in = "jeton enregistré"
 
 [login.claude]
 label = "Claude (connexion par abonnement)"
-started = """**Connexion à Claude**
+started = """**Connexion à Claude — {account}**
 
-1. Ouvrez ce lien et connectez-vous :
+1. Ouvrez ce lien et connectez-vous avec le compte Claude voulu pour **{account}** :
 {url}
 
 2. Répondez ici avec le code affiché par la page. Il est valable 10 minutes ; /login cancel l'arrête."""
-saved = "Claude est connecté. Une seule connexion sert pour tous les sujets, Consult compris. Elle dure environ un an ; renouvelez-la avec /login claude."
+saved = "Le compte Claude **{account}** est connecté. Une seule connexion sert pour tous les sujets, Consult compris. Elle dure environ un an ; renouvelez-la avec /login claude {id}."
 
 [skills]
 builtin_note = "_Les skills intégrés de Claude ne figurent pas ici : ils sont dans le binaire et se chargent automatiquement._"

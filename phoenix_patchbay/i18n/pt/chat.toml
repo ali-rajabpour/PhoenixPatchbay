@@ -493,16 +493,24 @@ failed = "Falha ao entrar: {reason}"
 cancelled = "Login cancelado."
 none_pending = "Nenhum login está esperando um código."
 unsupported = "Entrar pelo chat não é compatível com esta plataforma. Execute `claude setup-token` em um terminal."
+choose = """**{provider}: escolha a conta**
+
+{accounts}"""
+unknown_account = """Conta desconhecida `{account}`.
+
+{list}"""
+in_use = "em uso"
+signed_in = "token salvo"
 
 [login.claude]
 label = "Claude (login da assinatura)"
-started = """**Login do Claude**
+started = """**Login do Claude — {account}**
 
-1. Abra este link e entre:
+1. Abra este link e entre com a conta do Claude que você quer para **{account}**:
 {url}
 
 2. Responda aqui com o código que a página mostra. Vale por 10 minutos; /login cancel interrompe."""
-saved = "Claude está conectado. Um login vale para todos os tópicos, inclusive o Consult. Dura cerca de um ano; renove com /login claude."
+saved = "A conta do Claude **{account}** está conectada. Um login vale para todos os tópicos, inclusive o Consult. Dura cerca de um ano; renove com /login claude {id}."
 
 [skills]
 builtin_note = "_Os skills integrados do Claude não aparecem aqui — vivem dentro do binário e carregam automaticamente._"

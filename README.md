@@ -529,7 +529,7 @@ This is **hot-reloadable** — change the language without restarting the bot.
 | `/model` | Interactive model/provider selector — Claude aliases (`opus`, `sonnet`, `[1m]` for the 1M-context beta) plus pinned versions such as `OPUS 4.8`, and `9ROUTER` when `NINEROUTER_BASE_URL` is set. Also under `/settings` |
 | `/effort` | Reasoning effort for the current chat/topic (Claude & Codex) |
 | `/account` | Claude accounts: switch the credential store (see `claude_accounts` in docs/config.md). Also under `/settings` |
-| `/login` | Sign a provider's CLI in from the chat: `/login claude` sends a link, you reply with the code, and one token then covers every topic, Consult included. `/login cancel` aborts |
+| `/login` | Sign a provider's CLI in from the chat: `/login claude [account]` sends a link, you reply with the code, and that account's token then covers every topic, Consult included. With two Claude accounts configured it asks which one and marks the one in use; each keeps its own token. `/login cancel` aborts |
 | `/persona` | Choose which Claude Code agent governs this chat/topic |
 | `/plugins` | Choose which plugins load for this chat/topic |
 | `/skills` | Browse available skills by plugin; tap one to copy its command |

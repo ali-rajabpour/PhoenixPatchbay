@@ -492,16 +492,24 @@ failed = "Login failed: {reason}"
 cancelled = "Login cancelled."
 none_pending = "No login is waiting for a code."
 unsupported = "Logging in from the chat is not supported on this platform. Run `claude setup-token` in a terminal instead."
+choose = """**{provider}: choose the account**
+
+{accounts}"""
+unknown_account = """Unknown account `{account}`.
+
+{list}"""
+in_use = "in use"
+signed_in = "token saved"
 
 [login.claude]
 label = "Claude (subscription sign-in)"
-started = """**Claude login**
+started = """**Claude login — {account}**
 
-1. Open this link and sign in:
+1. Open this link and sign in with the Claude account you want for **{account}**:
 {url}
 
 2. Reply here with the code the page shows. It is valid for 10 minutes; /login cancel stops it."""
-saved = "Claude is logged in. One login covers every topic, including Consult. It lasts about a year; run /login claude again to renew it."
+saved = "Claude account **{account}** is logged in. One login covers every topic, Consult included. It lasts about a year; run /login claude {id} again to renew it."
 
 [skills]
 builtin_note = "_Claude's own built-in skills are not listed here — they live inside the binary and load automatically._"

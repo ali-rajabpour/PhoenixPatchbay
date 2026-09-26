@@ -493,16 +493,24 @@ failed = "Inloggen mislukt: {reason}"
 cancelled = "Inloggen geannuleerd."
 none_pending = "Er wacht geen login op een code."
 unsupported = "Inloggen vanuit de chat wordt op dit platform niet ondersteund. Voer in plaats daarvan `claude setup-token` uit in een terminal."
+choose = """**{provider}: kies het account**
+
+{accounts}"""
+unknown_account = """Onbekend account `{account}`.
+
+{list}"""
+in_use = "in gebruik"
+signed_in = "token opgeslagen"
 
 [login.claude]
 label = "Claude (abonnementslogin)"
-started = """**Claude-login**
+started = """**Claude-login — {account}**
 
-1. Open deze link en log in:
+1. Open deze link en log in met het Claude-account dat je voor **{account}** wilt:
 {url}
 
 2. Antwoord hier met de code die de pagina toont. Hij is 10 minuten geldig; /login cancel stopt het."""
-saved = "Claude is ingelogd. Eén login geldt voor elk onderwerp, ook Consult. Hij duurt ongeveer een jaar; vernieuw met /login claude."
+saved = "Claude-account **{account}** is ingelogd. Eén login geldt voor elk onderwerp, ook Consult. Hij duurt ongeveer een jaar; vernieuw met /login claude {id}."
 
 [skills]
 builtin_note = "_Claude's eigen ingebouwde skills staan hier niet — die zitten in het binaire bestand en laden automatisch._"

@@ -104,3 +104,32 @@ def load_personas(config: Path | None = None) -> list[Persona]:
 def is_known(name: str, config: Path | None = None) -> bool:
     """True when *name* is a defined persona."""
     return any(p.name == name for p in load_personas(config))
+
+
+def agent_definition(name: str, config: Path | None = None) -> dict[str, object] | None:
+    """Return persona *name* as an inline ``--agents`` definition, or ``None``.
+
+    A run dropped to another unix account (Consult) has its own ``~/.claude``
+    with no agents, and the bot's config directory is private to the bot, so
+    ``--agent <name>`` alone fails with "agent not found". Handing the CLI the
+    definition on the command line needs no file the other account can read.
+    """
+    persona = next((p for p in load_personas(config) if p.name == name), None)
+    if persona is None:
+        return None
+    try:
+        text = persona.path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    meta = _parse_frontmatter(text)
+    # The body is whatever follows the closing ``---`` of the frontmatter.
+    parts = text.split("---", 2) if text.startswith("---") else ["", "", text]
+    definition: dict[str, object] = {
+        "description": meta.get("description", "") or name,
+        "prompt": parts[2].strip(),
+    }
+    if meta.get("tools"):
+        definition["tools"] = [t.strip() for t in meta["tools"].split(",") if t.strip()]
+    if meta.get("model"):
+        definition["model"] = meta["model"]
+    return definition

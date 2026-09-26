@@ -31,6 +31,7 @@ from phoenix_patchbay.cli.stream_events import (
     parse_stream_line,
 )
 from phoenix_patchbay.cli.types import CLIResponse
+from phoenix_patchbay.personas.catalog import agent_definition
 
 if TYPE_CHECKING:
     from phoenix_patchbay.cli.timeout_controller import TimeoutController
@@ -83,6 +84,10 @@ class ClaudeCodeCLI(BaseCLI):
         # A persona is a Claude Code agent; --agent is what actually loads its
         # definition, rather than merely describing it in the prompt.
         add_cli_opt(cmd, "--agent", cfg.persona or None)
+        # A run as another unix account cannot see the bot's agents directory,
+        # so the persona is passed inline (see personas.catalog.agent_definition).
+        if cfg.persona and cfg.run_as_user and (agent := agent_definition(cfg.persona)):
+            add_cli_opt(cmd, "--agents", json.dumps({cfg.persona: agent}))
         # Narrows the plugin set for this run. The document is the installation's
         # own settings.json with enabledPlugins replaced, so the permission
         # allowlist and the hooks it carries are preserved.

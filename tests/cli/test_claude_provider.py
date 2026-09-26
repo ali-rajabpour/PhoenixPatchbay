@@ -1038,3 +1038,28 @@ def test_settings_file_stays_private_without_run_as_user(
         assert stat.S_IMODE(Path(path).stat().st_mode) == 0o600
     finally:
         Path(path).unlink(missing_ok=True)
+
+
+def test_persona_is_passed_inline_when_run_as_another_account(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The consult account cannot read the bot's ~/.claude/agents, so --agent
+    # alone failed with "--agent 'scout' not found".
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    (agents / "scout.md").write_text(
+        "---\nname: scout\ndescription: Finds things\nmodel: sonnet\n"
+        "tools: Read, Grep\n---\n\nYou are scout.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    cmd = _make_cli(monkeypatch, persona="scout", run_as_user="consult")._build_command("hi")
+    assert json.loads(cmd[cmd.index("--agents") + 1]) == {
+        "scout": {
+            "description": "Finds things",
+            "prompt": "You are scout.",
+            "tools": ["Read", "Grep"],
+            "model": "sonnet",
+        }
+    }
+    assert "--agents" not in _make_cli(monkeypatch, persona="scout")._build_command("hi")

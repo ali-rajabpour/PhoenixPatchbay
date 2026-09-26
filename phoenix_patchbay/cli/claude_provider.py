@@ -227,7 +227,12 @@ class ClaudeCodeCLI(BaseCLI):
         if not value or len(value.encode()) <= _MAX_INLINE_APPEND_BYTES:
             return None
         directory = docker_prompt_tmp_dir() if self._config.docker_container else None
-        return create_system_prompt_file(value, directory=directory, prefix=_APPEND_PREFIX)
+        return create_system_prompt_file(
+            value,
+            directory=directory,
+            prefix=_APPEND_PREFIX,
+            run_as_user=self._config.run_as_user,
+        )
 
     def _create_settings_path(self) -> str | None:
         """Write this run's ``--settings`` document to a temp file.
@@ -240,7 +245,12 @@ class ClaudeCodeCLI(BaseCLI):
         if not value:
             return None
         directory = docker_prompt_tmp_dir() if self._config.docker_container else None
-        return create_system_prompt_file(value, directory=directory, prefix=_SETTINGS_PREFIX)
+        return create_system_prompt_file(
+            value,
+            directory=directory,
+            prefix=_SETTINGS_PREFIX,
+            run_as_user=self._config.run_as_user,
+        )
 
     def _append_arg_path(self, host_path: str | None) -> str | None:
         """Resolve a temp-file argument (prompt or settings) for the run target.

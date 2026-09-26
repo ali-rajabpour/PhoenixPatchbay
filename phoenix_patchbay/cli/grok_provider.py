@@ -34,6 +34,7 @@ from phoenix_patchbay.cli.executor import (
     run_oneshot_subprocess,
     run_streaming_subprocess,
 )
+from phoenix_patchbay.cli.gemini_utils import share_with_run_as_user
 from phoenix_patchbay.cli.grok_events import parse_grok_json, parse_grok_stream_line
 from phoenix_patchbay.cli.stream_events import (
     AssistantTextDelta,
@@ -131,6 +132,7 @@ class GrokCLI(BaseCLI):
         with handle:
             handle.write(prompt)
             path = Path(handle.name)
+        share_with_run_as_user(path, self._config.run_as_user)
         self._temp_prompt_files.append(path)
         return path
 

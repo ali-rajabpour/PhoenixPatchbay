@@ -127,12 +127,15 @@ def create_system_prompt_file(
     *,
     directory: str | None = None,
     prefix: str = "gemini_system_",
+    run_as_user: str = "",
 ) -> str:
     """Write system prompt to a temp file, return path. Caller must clean up.
 
     When *directory* is set the temp file is placed there instead of the
     system default (useful for Docker mounts like ``~/.phoenix-patchbay/tmp``).  The
-    file keeps the default ``0600`` permissions so prompt content stays private.
+    file keeps the default ``0600`` permissions so prompt content stays private,
+    unless *run_as_user* is set: the CLI then runs as that account and needs to
+    read it (see :func:`share_with_run_as_user`).
     """
     content = system_prompt
     if append_prompt:
@@ -146,7 +149,30 @@ def create_system_prompt_file(
         dir=directory,
     ) as tf:
         tf.write(content)
-        return tf.name
+    share_with_run_as_user(tf.name, run_as_user)
+    return tf.name
+
+
+def share_with_run_as_user(path: str | Path, user: str) -> None:
+    """Make a private temp file readable by the account the CLI is dropped to.
+
+    Temp files are created ``0600`` by the bot user, so a CLI started through
+    ``sudo -u <user>`` fails with ``EACCES`` opening them. Grant read to that
+    account's own group (the bot user must be a member, which the Consult setup
+    already requires for the working directory). No-op without *user*.
+    """
+    if not user:
+        return
+    import grp  # POSIX only; run_as_user is never set on Windows
+
+    try:
+        os.chown(path, -1, grp.getgrnam(user).gr_gid)
+        Path(path).chmod(0o640)
+    except (KeyError, OSError):
+        # ponytail: world-readable fallback when the bot user is not in the group;
+        # the file lives for one run. Tighten by requiring the group at startup.
+        logger.warning("Cannot share %s with group %r; falling back to 0644", path, user)
+        Path(path).chmod(0o644)
 
 
 def _gemini_models_js_candidates() -> tuple[Path, ...]:

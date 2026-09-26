@@ -1005,3 +1005,36 @@ def test_the_settings_file_is_removed_after_a_run(monkeypatch: pytest.MonkeyPatc
         asyncio.run(cli.send("hi"))
     assert written
     assert not Path(written[0]).exists()
+
+
+def test_settings_file_is_readable_by_the_run_as_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Consult runs the CLI through ``sudo -u consult``; a 0600 file owned by the
+    # bot user made claude fail with EACCES opening --settings.
+    import grp
+    import os
+    import stat
+
+    monkeypatch.setattr(grp, "getgrnam", lambda _name: SimpleNamespace(gr_gid=os.getgid()))
+    cli = _make_cli(monkeypatch, settings_json="{}", run_as_user="consult")
+    path = cli._create_settings_path()
+    assert path is not None
+    try:
+        assert stat.S_IMODE(Path(path).stat().st_mode) == 0o640
+    finally:
+        Path(path).unlink(missing_ok=True)
+
+
+def test_settings_file_stays_private_without_run_as_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import stat
+
+    cli = _make_cli(monkeypatch, settings_json="{}")
+    path = cli._create_settings_path()
+    assert path is not None
+    try:
+        assert stat.S_IMODE(Path(path).stat().st_mode) == 0o600
+    finally:
+        Path(path).unlink(missing_ok=True)

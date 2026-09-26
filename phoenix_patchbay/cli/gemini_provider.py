@@ -330,6 +330,7 @@ class GeminiCLI(BaseCLI):
             self._config.system_prompt or "",
             self._config.append_system_prompt or "",
             directory=directory,
+            run_as_user=self._config.run_as_user,
         )
 
     def _docker_extra_env(self, system_prompt_path: str | None = None) -> dict[str, str]:

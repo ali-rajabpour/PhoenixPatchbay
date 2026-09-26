@@ -10,7 +10,7 @@ set -euo pipefail
 SEED=/etc/patchbay/seed
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 
-mkdir -p "$CLAUDE_DIR/hooks"
+mkdir -p "$CLAUDE_DIR/hooks" "$CLAUDE_DIR/agents" "$CLAUDE_DIR/personas"
 
 # Claude Code's settings: plugins and the two hooks that pay for themselves.
 if [ ! -f "$CLAUDE_DIR/settings.json" ] && [ -f "$SEED/claude-settings.json" ]; then
@@ -26,6 +26,21 @@ for hook in "$SEED"/hooks/*; do
     if [ ! -f "$target" ]; then
         cp "$hook" "$target"
         chmod +x "$target"
+        echo "patchbay: seeded $target"
+    fi
+done
+
+# Personas are Claude Code agents (the picker lists ~/.claude/agents) plus a
+# plugin scope per persona. Same rule as everything here: never overwrite, so an
+# edited persona stays edited.
+for src in "$SEED"/agents/*.md "$SEED"/personas/*.json; do
+    [ -e "$src" ] || continue
+    case "$src" in
+        */agents/*) target="$CLAUDE_DIR/agents/$(basename "$src")" ;;
+        *) target="$CLAUDE_DIR/personas/$(basename "$src")" ;;
+    esac
+    if [ ! -f "$target" ]; then
+        cp "$src" "$target"
         echo "patchbay: seeded $target"
     fi
 done

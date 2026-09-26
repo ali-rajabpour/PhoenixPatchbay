@@ -31,6 +31,16 @@ Then, in Telegram: `/menu` → **Account** to log the Claude CLI in, and
   want it read — a file you sent to be uploaded should not be turned into
   transcript that every later turn pays for. When you do want it read, the
   model gets a 1024px WebP or the PDF's text, not the original.
+- **Five personas** (`default`, `coder`, `web-designer`, `scout`, `researcher`),
+  seeded into `~/.claude/agents` with a plugin scope each, and a picker that asks
+  which one a new conversation should use (`PATCHBAY_PERSONA_PROMPT=0` turns the
+  question off). They are copied once and never overwritten, so edit them in the
+  volume.
+- **Consult and General topics**, when you name a group with
+  `TELEGRAM_ALLOWED_GROUP_IDS`: a disposable Consult topic wiped daily and run as
+  its own unix account, and a pinned notice in General. The bot needs admin
+  rights in the group (manage topics, pin messages). `PATCHBAY_MANAGED_TOPICS=0`
+  keeps the group without them.
 - One session per Telegram topic. Five topics are five machines that happen to
   share a chat window.
 

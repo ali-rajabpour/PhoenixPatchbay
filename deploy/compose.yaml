@@ -26,6 +26,14 @@ services:
       # Optional: directories the agent may work in, as `label=/path` or a bare
       # path. Everything under /home/patchbay is inside the container.
       PATCHBAY_PROJECT_ROOTS: ${PATCHBAY_PROJECT_ROOTS:-}
+      # Optional: the Telegram group (forum, with topics enabled) the bot works
+      # in. Naming one also creates the Consult topic and the pinned General
+      # notice; set PATCHBAY_MANAGED_TOPICS=0 to keep the group without them.
+      TELEGRAM_ALLOWED_GROUP_IDS: ${TELEGRAM_ALLOWED_GROUP_IDS:-}
+      PATCHBAY_MANAGED_TOPICS: ${PATCHBAY_MANAGED_TOPICS:-1}
+      # Ask which persona (agent) should govern a new conversation. The image
+      # ships five; set to 0 to skip the question.
+      PATCHBAY_PERSONA_PROMPT: ${PATCHBAY_PERSONA_PROMPT:-1}
       # Optional. With a key here the handoff write-up runs on Gemini instead
       # of the coding session, so it is not billed to your Claude subscription.
       # Without one, nothing changes: the write-up resumes the session as before.

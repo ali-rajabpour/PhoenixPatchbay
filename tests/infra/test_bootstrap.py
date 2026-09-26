@@ -142,3 +142,35 @@ class TestOneOwner:
         ensure_config(tmp_path / "config.json")
         written = json.loads((tmp_path / "config.json").read_text())
         assert written["gemini_api_key"] == "AIzaSyExample"
+
+
+def _config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **env: str) -> dict:
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123:abc")
+    monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "42")
+    for key in ("TELEGRAM_ALLOWED_GROUP_IDS", "PATCHBAY_MANAGED_TOPICS", "PATCHBAY_PERSONA_PROMPT"):
+        monkeypatch.delenv(key, raising=False)
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    target = tmp_path / "config.json"
+    assert ensure_config(target)
+    return json.loads(target.read_text())
+
+
+def test_a_group_turns_on_managed_topics(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = _config(monkeypatch, tmp_path, TELEGRAM_ALLOWED_GROUP_IDS="-1001234567890")
+    assert config["allowed_group_ids"] == [-1001234567890]
+    assert config["managed_topics"] is True
+
+
+def test_managed_topics_can_be_switched_off(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = _config(
+        monkeypatch, tmp_path, TELEGRAM_ALLOWED_GROUP_IDS="-100123", PATCHBAY_MANAGED_TOPICS="0"
+    )
+    assert config["managed_topics"] is False
+
+
+def test_no_group_means_no_managed_topics(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = _config(monkeypatch, tmp_path)
+    assert "managed_topics" not in config
+    assert "allowed_group_ids" not in config
+    assert config["persona_prompt"] is True

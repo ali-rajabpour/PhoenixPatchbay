@@ -1,0 +1,10 @@
+{
+  "enabledPlugins": {
+    "caveman@caveman": true,
+    "context-mode@context-mode": true,
+    "github@claude-plugins-official": false,
+    "ponytail@ponytail": true,
+    "security-guidance@claude-plugins-official": false,
+    "superpowers@claude-plugins-official": false
+  }
+}

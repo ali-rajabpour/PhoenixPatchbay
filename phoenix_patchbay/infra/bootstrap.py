@@ -24,6 +24,15 @@ TOKEN_VAR = "TELEGRAM_BOT_TOKEN"  # noqa: S105 - the name of a variable, not a s
 USERS_VAR = "TELEGRAM_ALLOWED_USER_IDS"
 ROOTS_VAR = "PATCHBAY_PROJECT_ROOTS"
 GEMINI_VAR = "GEMINI_API_KEY"
+GROUPS_VAR = "TELEGRAM_ALLOWED_GROUP_IDS"
+TOPICS_VAR = "PATCHBAY_MANAGED_TOPICS"
+PERSONA_PROMPT_VAR = "PATCHBAY_PERSONA_PROMPT"
+_OFF = {"0", "false", "no", "off"}
+
+
+def _enabled(var: str) -> bool:
+    """A flag that is on unless explicitly switched off."""
+    return os.environ.get(var, "1").strip().lower() not in _OFF
 
 
 def _user_ids(raw: str) -> list[int]:
@@ -70,6 +79,16 @@ def config_from_env() -> dict[str, Any] | None:
     roots = os.environ.get(ROOTS_VAR, "").strip()
     if roots:
         config["project_roots"] = _project_roots(roots)
+
+    # Topics live in a Telegram group, so managed topics (the Consult topic and
+    # the pinned General notice) only make sense once a group is named. Naming
+    # one is the opt-in; PATCHBAY_MANAGED_TOPICS=0 keeps the group without them.
+    groups = _user_ids(os.environ.get(GROUPS_VAR, ""))
+    if groups:
+        config["allowed_group_ids"] = groups
+        config["managed_topics"] = _enabled(TOPICS_VAR)
+    # The image ships personas; without the picker they would never be offered.
+    config["persona_prompt"] = _enabled(PERSONA_PROMPT_VAR)
 
     # Optional, and the only thing it switches on is the handoff writer: with a
     # key set, the write-up runs on Gemini instead of the coding session, so it
